@@ -1,0 +1,32 @@
+{
+  "title": "海风任务",
+  "credit": "原创像素风格演示 · 无声预览",
+  "duration": 24,
+  "fps": 30,
+  "scale": 4,
+  "bpm": 120,
+  "beat_offset": 0,
+  "crt": true,
+  "scenes": [
+    {"start":0,"end":2,"kind":"title","palette":"sunset","label":"新的旅程","coins":0,"meaning":"启动冒险"},
+    {"start":2,"end":5,"kind":"beach","palette":"day","label":"1-1 海风海岸","coins":0,"action":"jump","meaning":"把海风的轻快感变成跳跃拾取"},
+    {"start":5,"end":8,"kind":"equipment","palette":"day","label":"装备准备","coins":8,"meaning":"勇气成为可选择的装备"},
+    {"start":8,"end":11,"kind":"drive","palette":"day","label":"1-2 沿海公路","coins":8,"partner":true,"meaning":"驾车把烦恼留在身后"},
+    {"start":11,"end":14,"kind":"battle","palette":"day","label":"1-3 音符回应","coins":16,"partner":true,"meaning":"乐器与音乐弹体建立人物回应"},
+    {"start":14,"end":16,"kind":"map","palette":"day","label":"下一站","coins":24,"meaning":"地图点亮新目的地"},
+    {"start":16,"end":18,"kind":"spotlight","palette":"sunset","label":"勇气 MAX","coins":24,"meaning":"属性强化作为短高潮"},
+    {"start":18,"end":21,"kind":"night","palette":"night","label":"2-1 月光海岸","coins":32,"partner":true,"action":"walk","meaning":"返回海岸，用夜色和并肩同行推进关系"},
+    {"start":21,"end":24,"kind":"ending","palette":"night","label":"任务完成","coins":40,"partner":true,"meaning":"宝箱与同行关系一起兑现"}
+  ],
+  "lyrics": [
+    {"start":0,"end":2,"text":"新的冒险，从这一刻开始","reveal_seconds":0.9},
+    {"start":2,"end":5,"text":"把海风装进口袋，向夏天出发","reveal_seconds":1.3},
+    {"start":5,"end":8,"text":"装备一件勇气，再带上一点好心情","reveal_seconds":1.4},
+    {"start":8,"end":11,"text":"沿着海岸开，把烦恼留在身后","reveal_seconds":1.3},
+    {"start":11,"end":14,"text":"用一个音符，接住你的回应","reveal_seconds":1.2},
+    {"start":14,"end":16,"text":"下一站，去地图上还没点亮的地方","reveal_seconds":1.2},
+    {"start":16,"end":18,"text":"勇气值，满格！","reveal_seconds":0.6},
+    {"start":18,"end":21,"text":"等月亮升起来，我们就并肩走","reveal_seconds":1.4},
+    {"start":21,"end":24,"text":"找到宝藏，也找到了同行的人","reveal_seconds":1.3}
+  ]
+}

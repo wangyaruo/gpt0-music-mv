@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.DS_Store
+.venv/
+output/
+analysis/
+*.mp4
+*.mov
+*.wav
+*.mp3
+*.aac

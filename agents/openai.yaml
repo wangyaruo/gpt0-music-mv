@@ -1,0 +1,4 @@
+interface:
+  display_name: "像素 RPG 音乐 MV"
+  short_description: "将歌曲与歌词编排成像素游戏剧情，生成角色动画、逐字对白与完整音乐视频"
+  default_prompt: "使用 $gpt0-music-mv，把我提供的歌曲和歌词制作成具有游戏关卡叙事的像素 RPG 音乐视频。"
