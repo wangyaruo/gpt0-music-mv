@@ -130,7 +130,7 @@ def render_rain_scene(scene, time):
       partner = x in (65, 196)
       person(image, x, 105, time, partner=partner,
              view=scene.get("partner_view" if partner else "hero_view", "front"),
-             animation_fps=scene.get("_animation_fps", 8))
+             animation_fps=scene.get("_animation_fps", 8), sprites=scene.get("_sprite_assets"))
   elif kind == "memory_items":
     draw.rectangle((0, 0, 255, 143), fill="#14213d")
     for index, color in enumerate(("#7e9bb8", "#d99bb5", "#a8b08b")):
@@ -155,10 +155,10 @@ def render_rain_scene(scene, time):
     animation_fps = scene.get("_animation_fps", 8)
     hero_x = 108+int(progress*16) if scene.get("action") == "walk" else 112
     person(image, hero_x, 113, time, action=scene.get("action", "idle"),
-           view=scene.get("hero_view", "front"), animation_fps=animation_fps)
+           view=scene.get("hero_view", "front"), animation_fps=animation_fps, sprites=scene.get("_sprite_assets"))
     if scene.get("partner"):
       person(image, hero_x+26, 113, time, partner=True, view=scene.get("partner_view", "front"),
-             animation_fps=animation_fps)
+             animation_fps=animation_fps, sprites=scene.get("_sprite_assets"))
     item = scene.get("umbrella")
     if item:
       owner = item.get("owner", "shared")

@@ -17,6 +17,10 @@
 
 ![原创糖果卷轴示例的场景预览](assets/candy-preview.png)
 
+可替换角色精灵与背景图层的原创示例（展示用无声画面）：
+
+![原创分层场景示例](assets/composite-preview.png)
+
 ## 用作 Codex skill
 
 将本仓库目录放在你的 skills 目录下，目录名保持 `gpt0-music-mv`。例如：
@@ -29,7 +33,7 @@ git clone https://github.com/wangyaruo/gpt0-music-mv.git ~/.codex/skills/gpt0-mu
 
 > 使用 $gpt0-music-mv，把我提供的歌曲和 LRC 歌词做成像素 RPG 音乐视频。先把歌词转为游戏事件，再制作固定角色和连贯的关卡叙事。
 
-入口是 [SKILL.md](SKILL.md)，详细分镜字段和资产提示词见 [分镜契约](references/storyboard.md)。
+入口是 [SKILL.md](SKILL.md)，详细分镜字段和资产提示词见 [分镜契约](references/storyboard.md)，歌词对齐、精灵图和分层合成见 [素材与歌词流程](references/asset-pipeline.md)。
 它不绑定某个付费图像/视频服务，也不宣称能凭成片判断原作者使用的模型。
 
 ## 直接运行
@@ -47,6 +51,9 @@ python3 scripts/render_mv.py examples/rain-demo.json --out output/rain-demo.mp4
 
 # 24 秒卷轴示例：1024×576、30 fps，含收集、进度条、特写和视觉快进。
 python3 scripts/render_mv.py examples/candy-demo.json --out output/candy-demo.mp4
+
+# 自定义精灵和分层视差的原创无声示例：1280×720、12 fps。
+python3 scripts/render_mv.py examples/composite-demo.json --out output/layer-demo.mp4
 
 # 检查一个关键画面。
 python3 scripts/render_mv.py examples/demo.json --still 6.5 --out output/equipment.png
@@ -81,17 +88,17 @@ JSON 内的 `audio`、`lyrics_file`、`font`、场景 `background` 路径相对�
 |---|---|
 | 像素场景 | 海滩、雨夜城市、公交站、公交车厢、教室、书店、记忆卡片、城市地图、糖果卷轴 |
 | 游戏叙事 | 装备、驾车、战斗、地图、回忆、选择菜单、收集、存档提示、通关、视觉快进和特写 |
-| 角色动画 | 原创角色、走路、跳跃、弹奏、正面/背面/侧面、双人同场和雨伞 |
+| 角色动画 | 原创角色或外部 PNG 精灵图；动画帧、速度、锚点、朝向和头像可配置 |
 | 状态与字幕 | 事件驱动的金币/物品/进度条、队伍/好感/距离、独立对白、卡拉 OK 与关键词颜色 |
-| 连续卷轴 | 固定角色、远中近分层滚动；同一故事分支与世界的镜头位置可继承 |
-| 歌词 | JSON 句级及可选字/词时间戳、标准 LRC、多时间戳、offset |
+| 连续卷轴 | 分层 PNG、独立视差、重复铺设、角色关键帧；相同分支与世界的相机位置可继承 |
+| 歌词 | JSON/LRC；可将 WhisperX 词时间与已确认歌词匹配为待听音校正的草稿 |
 | 视频 | 最近邻整数放大、轻 CRT、H.264、可选 AAC 音频、成片元数据检查 |
 | 参考分析 | 定时抽帧、联系表、转场候选；安装可选 NumPy 后提供 BPM 候选 |
 
 原片中的酒吧、俯视脚印、篝火、背包网格、摩天轮和更复杂的镜头运动仍需扩展场景或提供资产。
 存档点只是一段画面，不会保存游戏进度；视觉快进不改变音频速度。
 程序化像素资产在 `scripts/pixel_world.py` 中，可替换配色、人物图案和场景。
-现有示例不含自动语音识别、强制对齐或自动音乐生成。用户可提供字/词时间戳；只有句级 LRC 时的逐字高亮是近似阅读动画。
+基础安装不包含语音识别或自动音乐生成。可选 WhisperX 必须另行安装并准备模型；自动匹配结果需要听音校对，无法匹配的行需要人工补全。只有句级 LRC 时的逐字高亮是近似阅读动画。
 分词时间戳的来源按用户声明记录，并不自动代表已听音核验。BPM 候选存在半拍/倍拍歧义，必须核对。
 
 ## 仓库结构
@@ -109,6 +116,11 @@ scripts/pixel_world.py        原创像素角色和场景
 scripts/rain_scenes.py        雨夜城市、公交、回忆与地图
 scripts/candy_scenes.py       糖果世界、分层卷轴和眼睛特写
 scripts/narrative_events.py   定时事件、状态继承与相机位置
+scripts/align_lyrics.py       将确认歌词和 WhisperX 词时间匹配为可编辑草稿
+scripts/sprite_assets.py      外部角色精灵图加载
+scripts/layer_compositor.py   图像、角色、关键帧与视差合成
+references/asset-pipeline.md  素材与歌词对齐说明
+examples/composite-demo.json  自定义精灵和多层视差示例
 scripts/media_utils.py        FFmpeg 查找与元数据读取
 examples/demo.json            可直接渲染的九场景样例
 examples/rain-demo.json       雨夜与分支叙事样例

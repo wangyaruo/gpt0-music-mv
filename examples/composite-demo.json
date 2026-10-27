@@ -1,0 +1,36 @@
+{
+  "title": "雨后的城市",
+  "duration": 8,
+  "canvas": [320, 180],
+  "scale": 4,
+  "fps": 12,
+  "subtitle_mode": "karaoke",
+  "crt": false,
+  "sprites": {
+    "hero": {
+      "image": "assets/hero.png", "frame_width": 12, "frame_height": 19, "anchor": [6, 19],
+      "animations": {
+        "idle": {"front": {"frames": [0], "fps": 6}},
+        "walk": {"front": {"frames": [0, 1, 2, 3], "fps": 6}}
+      }
+    }
+  },
+  "scenes": [
+    {
+      "kind": "composite", "start": 0, "end": 8,
+      "camera": {"world": "city", "speed": 12},
+      "layers": [
+        {"id": "sky", "type": "image", "file": "assets/sky.png", "z": 0, "parallax": 0},
+        {"id": "city", "type": "image", "file": "assets/city.png", "z": 1, "parallax": 0.3, "repeat_x": true},
+        {"id": "road", "type": "image", "file": "assets/ground.png", "z": 2, "parallax": 1, "repeat_x": true},
+        {"id": "hero", "type": "sprite", "actor": "hero", "action": "walk", "view": "front", "z": 3,
+         "x": 110, "y": 140, "scale": 2, "parallax": 0,
+         "keyframes": [{"time": 0, "x": 110}, {"time": 8, "x": 200}]}
+      ]
+    }
+  ],
+  "lyrics": [
+    {"start": 0.5, "end": 4, "text": "雨停以后，继续向前", "timing_source": "estimated"},
+    {"start": 4.5, "end": 8, "text": "城市的灯光为我指路", "timing_source": "estimated"}
+  ]
+}

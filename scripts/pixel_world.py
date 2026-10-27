@@ -26,7 +26,7 @@ PARTNER = (
 COLORS = {"K": "#242a3d", "H": "#754650", "S": "#fbd1aa", "W": "#28334a", "M": "#dc7c78",
           "B": "#44b4bf", "D": "#294b70", "O": "#ee9471"}
 RAIN_KINDS = {"rain_city", "bus_stop", "bus_interior", "classroom", "bookstore", "memory_items", "city_map"}
-KIND_NAMES = {"title", "beach", "equipment", "drive", "battle", "map", "spotlight", "night", "ending", "candy_road"} | RAIN_KINDS
+KIND_NAMES = {"title", "beach", "equipment", "drive", "battle", "map", "spotlight", "night", "ending", "candy_road", "composite"} | RAIN_KINDS
 
 
 @lru_cache(maxsize=64)
@@ -55,18 +55,22 @@ def sprite(partner=False, step=0, silhouette=False, view="front"):
   return image
 
 
-def person(image, x, ground, time, partner=False, action="idle", zoom=1, silhouette=False, view="front", animation_fps=8):
+def person(image, x, ground, time, partner=False, action="idle", zoom=1, silhouette=False, view="front", animation_fps=8, sprites=None):
   tick = int(time * animation_fps)
-  frame = sprite(partner, tick % 2 if action == "walk" else 0, silhouette, view)
+  name = "partner" if partner else "hero"
+  if sprites and sprites.has(name):
+    frame, anchor = sprites.frame(name, action, view, time)
+  else:
+    frame, anchor = sprite(partner, tick % 2 if action == "walk" else 0, silhouette, view), (6, 19)
   if zoom != 1:
-    frame = frame.resize((12 * zoom, 19 * zoom), Image.Resampling.NEAREST)
+    frame = frame.resize((frame.width * zoom, frame.height * zoom), Image.Resampling.NEAREST)
   hop = 0
   if action == "jump":
     phase = time % 1.6 / 1.6
     hop = int(20 * 4 * phase * (1 - phase))
   elif action in ("walk", "play"):
     hop = tick % 2
-  image.alpha_composite(frame, (int(x - 6 * zoom), int(ground - 19 * zoom - hop)))
+  image.alpha_composite(frame, (int(x - anchor[0] * zoom), int(ground - anchor[1] * zoom - hop)))
   if action == "play":
     draw = ImageDraw.Draw(image)
     draw.ellipse((int(x - 6), int(ground - 12 - hop), int(x + 1), int(ground - 5 - hop)), fill="#f5bc4c", outline="#604236")
@@ -164,6 +168,9 @@ def scene_frame(scene, time, bpm, beat_offset=0):
   local = time - scene["start"]
   progress = min(1, max(0, local / (scene["end"] - scene["start"])))
   kind = scene["kind"]
+  if kind == "composite":
+    from layer_compositor import render
+    return render(scene, time)
   if kind in RAIN_KINDS:
     from rain_scenes import render_rain_scene
     return render_rain_scene(scene, time)
@@ -192,7 +199,7 @@ def scene_frame(scene, time, bpm, beat_offset=0):
       x, y = 42 + amount*90, 92 - amount*50
       draw.rectangle((int(x),int(y),int(x)+1,int(y)+1), fill="#ffe4a0")
     person(image, 42 + progress*90, 86-progress*50, time, action="walk",
-           view=scene.get("hero_view", "front"), animation_fps=scene.get("_animation_fps", 8))
+           view=scene.get("hero_view", "front"), animation_fps=scene.get("_animation_fps", 8), sprites=scene.get("_sprite_assets"))
   elif kind == "equipment":
     draw.rectangle((0, 0, 255, 143), fill="#10223b")
     for x in range(-144, 256, 8):
@@ -201,7 +208,7 @@ def scene_frame(scene, time, bpm, beat_offset=0):
     draw.rectangle((121, 18, 247, 114), fill="#102139", outline="#9caec1")
     draw.ellipse((23, 91, 101, 105), fill="#23516a")
     person(image, 63, 101, time, action="idle", zoom=3,
-           view=scene.get("hero_view", "front"), animation_fps=scene.get("_animation_fps", 8))
+           view=scene.get("hero_view", "front"), animation_fps=scene.get("_animation_fps", 8), sprites=scene.get("_sprite_assets"))
     row = int(local / 1.0) % 3
     draw.rectangle((125, 42+row*19, 243, 59+row*19), fill="#206b9c")
   elif kind == "drive":
@@ -211,10 +218,10 @@ def scene_frame(scene, time, bpm, beat_offset=0):
       draw.rectangle((xx, 114, xx+17, 115), fill="#f9eed3")
     x = 106 + int(math.sin(time*.7)*13)
     person(image, x+12, 103, time, view=scene.get("hero_view", "front"),
-           animation_fps=scene.get("_animation_fps", 8))
+           animation_fps=scene.get("_animation_fps", 8), sprites=scene.get("_sprite_assets"))
     if scene.get("partner"):
       person(image, x-5, 103, time, partner=True, view=scene.get("partner_view", "front"),
-             animation_fps=scene.get("_animation_fps", 8))
+             animation_fps=scene.get("_animation_fps", 8), sprites=scene.get("_sprite_assets"))
     draw.rectangle((x-28, 102, x+30, 111), fill="#ea787c", outline="#3c3549")
     draw.rectangle((x-16, 97, x+20, 102), fill="#d55b7a")
     draw.ellipse((x-18, 107, x-10, 115), fill="#28324b")
@@ -223,10 +230,10 @@ def scene_frame(scene, time, bpm, beat_offset=0):
     draw.rectangle((x+20, 110, x+22, 112), fill="#d4e3df")
   elif kind == "battle":
     person(image, 75, 112, time, action="play", view=scene.get("hero_view", "front"),
-           animation_fps=scene.get("_animation_fps", 8))
+           animation_fps=scene.get("_animation_fps", 8), sprites=scene.get("_sprite_assets"))
     if scene.get("partner"):
       person(image, 185, 112, time, partner=True, view=scene.get("partner_view", "front"),
-             animation_fps=scene.get("_animation_fps", 8))
+             animation_fps=scene.get("_animation_fps", 8), sprites=scene.get("_sprite_assets"))
     draw.rectangle((78, 18, 231, 38), fill="#1b213b", outline="#aeb7c4")
     draw.rectangle((111, 27, 222, 30), fill="#4b2c4e")
     draw.rectangle((111, 27, 111+int(111*(1-progress)), 30), fill="#f16390")
@@ -242,16 +249,16 @@ def scene_frame(scene, time, bpm, beat_offset=0):
       draw.polygon([(128, 70), (128+int(math.cos(a)*300),70+int(math.sin(a)*300)),
                     (128+int(math.cos(b)*300),70+int(math.sin(b)*300))], fill="#ffe778")
     person(image, 128, 112, time, action="play", zoom=3, view=scene.get("hero_view", "front"),
-           animation_fps=scene.get("_animation_fps", 8))
+           animation_fps=scene.get("_animation_fps", 8), sprites=scene.get("_sprite_assets"))
     sparkles(draw, time, center=(128,70), count=26)
   else:
     hero_x = 82 + int(progress*45) if kind == "beach" else 116
     action = scene.get("action", "walk" if kind == "beach" else "idle")
     person(image, hero_x, 112, time, action=action, view=scene.get("hero_view", "front"),
-           animation_fps=scene.get("_animation_fps", 8))
+           animation_fps=scene.get("_animation_fps", 8), sprites=scene.get("_sprite_assets"))
     if scene.get("partner"):
       person(image, hero_x+28, 112, time+.2, partner=True, action="walk" if action == "walk" else "idle",
-             view=scene.get("partner_view", "front"), animation_fps=scene.get("_animation_fps", 8))
+             view=scene.get("partner_view", "front"), animation_fps=scene.get("_animation_fps", 8), sprites=scene.get("_sprite_assets"))
     if kind == "beach":
       for index in range(8):
         x = 92 + index*12

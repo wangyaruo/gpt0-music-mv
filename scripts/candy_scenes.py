@@ -81,10 +81,10 @@ def render_candy_scene(scene, time):
   else:
     image = scene["background_image"].copy() if scene.get("background_image") is not None else candy_background(scene,time)
     person(image, 105, 110, time, action=scene.get("action", "walk"),
-           view=scene.get("hero_view", "front"), animation_fps=scene.get("_animation_fps", 8))
+           view=scene.get("hero_view", "front"), animation_fps=scene.get("_animation_fps", 8), sprites=scene.get("_sprite_assets"))
     if scene.get("partner"):
       person(image, 138, 110, time, partner=True, action=scene.get("action", "walk"),
-             view=scene.get("partner_view", "front"), animation_fps=scene.get("_animation_fps", 8))
+             view=scene.get("partner_view", "front"), animation_fps=scene.get("_animation_fps", 8), sprites=scene.get("_sprite_assets"))
     draw = ImageDraw.Draw(image)
     for event in active:
       if event["kind"] == "pickup":

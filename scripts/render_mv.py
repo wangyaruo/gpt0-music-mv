@@ -13,6 +13,8 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 from media_utils import ffmpeg_path, probe
 from narrative_events import prepare_events, scroll_position, state_at
+from sprite_assets import SpritePack
+from layer_compositor import prepare as prepare_layers
 from pixel_world import KIND_NAMES, PALETTES, RAIN_KINDS, scene_frame, sprite
 
 
@@ -62,6 +64,9 @@ def validate(config):
     raise ValueError("bpm 必须在 30–240 之间；估计值需人工校准。")
   if not finite_number(config.get("beat_offset", 0)):
     raise ValueError("beat_offset 必须是有限数。")
+  canvas = config.get("canvas", [256, 144])
+  if canvas not in ([256, 144], [320, 180]):
+    raise ValueError("canvas 目前支持 [256,144] 和 [320,180]。")
   scenes = config.get("scenes", [])
   if not scenes:
     raise ValueError("至少需要一个场景。")
@@ -74,6 +79,8 @@ def validate(config):
       raise ValueError("场景 start/end 必须是有限数。")
     if abs(scene["start"]-cursor) > .00001 or scene["end"] <= scene["start"]:
       raise ValueError("场景时间轴必须连续且不重叠。")
+    if canvas != [256, 144] and scene.get("kind") != "composite":
+      raise ValueError("320×180 画布仅支持 composite 场景。")
     if scene.get("kind") not in KIND_NAMES or scene.get("palette", "day") not in PALETTES:
       raise ValueError("未知场景 kind 或 palette。")
     if scene.get("action", "idle") not in ("idle", "walk", "jump", "play"):
@@ -162,7 +169,7 @@ def validate(config):
         item["kind"] in ("checkpoint", "stage_clear") for item in scene.get("events", [])):
       raise ValueError("对白/选择与 checkpoint/stage_clear 会重叠，请拆分场景。")
     tracks[track], coin_tracks[track] = end_state, end_coins
-    if scene["kind"] == "candy_road":
+    if scene["kind"] in ("candy_road", "composite"):
       camera = scene.get("camera", {})
       if not isinstance(camera, dict) or set(camera) - {"world", "speed", "offset"}:
         raise ValueError("camera 仅支持 world、speed 和 offset。")
@@ -170,21 +177,21 @@ def validate(config):
       if not isinstance(world, str) or not world.strip():
         raise ValueError("camera.world 必须是非空字符串。")
       camera_key = (narrative_time, branch, world)
-      previous = camera_tracks.get(camera_key, {"offset": 0, "speed": 8})
+      previous = camera_tracks.get(camera_key, {"offset": 0, "speed": 8 if scene["kind"] == "candy_road" else 0})
       speed, offset = camera.get("speed", previous["speed"]), camera.get("offset", previous["offset"])
       if not finite_number(speed) or not -40 <= speed <= 40 or not finite_number(offset):
         raise ValueError("camera.speed 需要在 -40–40 之间，offset 必须是有限数。")
       scene["_scroll_start"], scene["_scroll_speed"] = offset, speed
       camera_tracks[camera_key] = {"offset": scroll_position(scene, scene["end"]), "speed": speed}
     elif "camera" in scene:
-      raise ValueError("camera 目前仅支持 candy_road。")
+      raise ValueError("camera 目前仅支持 candy_road 和 composite。")
     cursor = scene["end"]
   if abs(cursor-config["duration"]) > .00001:
     raise ValueError("场景必须覆盖完整 duration。")
   cursor = 0
   for lyric in config.get("lyrics", []):
     if not all(finite_number(lyric.get(key)) for key in ("start", "end")):
-      raise ValueError("字幕时间必须是有限数。")
+      raise ValueError("字幕时间必须是有限数；请先修正尚未对齐的歌词行。")
     if not cursor <= lyric["start"] < lyric["end"] <= config["duration"]:
       raise ValueError("字幕必须按顺序、不重叠，且在片长内。")
     if not isinstance(lyric.get("text"), str):
@@ -299,7 +306,9 @@ class Renderer:
   def __init__(self, config, font_path, base):
     self.config = config
     self.scale = config.get("scale", 4)
-    self.size = (256*self.scale, 144*self.scale)
+    self.canvas = config.get("canvas", [256, 144])
+    self.size = tuple(value*self.scale for value in self.canvas)
+    self.sprites = SpritePack(config.get("sprites", {}), base)
     self.font = ImageFont.truetype(font_path, 6*self.scale)
     self.small = ImageFont.truetype(font_path, 5*self.scale)
     self.title = ImageFont.truetype(font_path, 13*self.scale)
@@ -324,6 +333,9 @@ class Renderer:
       if len(row["glyphs"]) > 2:
         raise ValueError("字幕超过两行，请分句：" + row["text"])
     for scene in config["scenes"]:
+      scene["_sprite_assets"] = self.sprites
+      if scene["kind"] == "composite":
+        prepare_layers(scene, base, self.sprites, self.canvas)
       if scene.get("dialogue"):
         scene["dialogue"]["_lines"] = wrap_text(scene["dialogue"]["text"], self.small, self.size[0]-55*self.scale)
         if len(scene["dialogue"]["_lines"]) > 2:
@@ -352,6 +364,11 @@ class Renderer:
   def text(self, draw, position, text, font=None, color="#fff1cc", anchor=None):
     draw.text(position, text, font=font or self.font, fill=color, stroke_width=max(1,self.scale//2),
               stroke_fill="#26344d", anchor=anchor)
+
+  def portrait(self, actor):
+    if self.sprites.has(actor):
+      return self.sprites.portrait(actor)
+    return sprite(partner=actor == "partner").crop((0, 0, 12, 10))
 
   def overlays(self, image, draw, scene):
     k = self.scale
@@ -411,9 +428,9 @@ class Renderer:
       self.text(draw,(210*k,104*k),"远方",self.small,anchor="mt")
     dialogue = scene.get("dialogue")
     if dialogue:
-      draw.rectangle((6*k,20*k,250*k,48*k),fill="#10213a",outline="#d5d5ca",width=max(1,k//2))
+      draw.rectangle((6*k,20*k,(self.canvas[0]-6)*k,48*k),fill="#10213a",outline="#d5d5ca",width=max(1,k//2))
       draw.rectangle((9*k,23*k,28*k,44*k),fill="#213d59",outline="#537a93",width=max(1,k//3))
-      portrait = sprite(partner=dialogue.get("speaker") == "partner").crop((0,0,12,10))
+      portrait = self.portrait(dialogue.get("speaker", "hero"))
       image.alpha_composite(portrait.resize((16*k,14*k),Image.Resampling.NEAREST),(10*k,25*k))
       self.text(draw,(33*k,22*k),dialogue.get("name",""),self.small,color="#f3aac4")
       for index, line in enumerate(dialogue["_lines"]):
@@ -472,7 +489,7 @@ class Renderer:
     elif kind == "ending":
       self.text(draw, (128*k,18*k), "任务完成", self.title, color="#ffe895", anchor="mt")
       self.text(draw, (128*k,39*k), cfg.get("credit",""), self.small, anchor="mt")
-    elif kind not in RAIN_KINDS:
+    elif kind not in RAIN_KINDS and kind != "composite":
       self.text(draw, (47*k,5*k), "×{:02d}".format(scene["coins"]), self.small)
       self.text(draw, (247*k,5*k), scene.get("label",""), self.small, anchor="rt")
       if kind == "battle":
@@ -484,9 +501,9 @@ class Renderer:
       states = karaoke_states(lyric,time)
       widths = [sum(self.font.getlength(char) for _, char in line) for line in lyric["glyphs"]]
       x = (self.size[0]-max(widths,default=0))/2-2*k
-      y = (122 if len(widths) == 2 else 130)*k
-      draw.rectangle((x,y,self.size[0]-x,141*k),fill="#11192c")
-      draw.rectangle((x,140*k,self.size[0]-x,141*k),fill="#d66795")
+      y = (self.canvas[1]-(22 if len(widths) == 2 else 14))*k
+      draw.rectangle((x,y,self.size[0]-x,(self.canvas[1]-3)*k),fill="#11192c")
+      draw.rectangle((x,(self.canvas[1]-4)*k,self.size[0]-x,(self.canvas[1]-3)*k),fill="#d66795")
       for line_index, line in enumerate(lyric["glyphs"]):
         pos = (self.size[0]-widths[line_index])/2
         for char_index, char in line:
@@ -494,11 +511,11 @@ class Renderer:
                     color=lyric_color(lyric,char_index,states[char_index]))
           pos += self.font.getlength(char)
     elif lyric:
-      x, y, w, h = 6*k, 120*k, 244*k, 22*k
+      x, y, w, h = 6*k, (self.canvas[1]-24)*k, (self.canvas[0]-12)*k, 22*k
       draw.rectangle((x,y,x+w,y+h), fill="#10213a", outline="#d5d5ca", width=max(1,k//2))
       draw.rectangle((x+k,y+k,x+w-k,y+h-k), outline="#355570", width=max(1,k//2))
       draw.rectangle((x+2*k,y+3*k,x+17*k,y+18*k), fill="#213d59", outline="#537a93", width=1)
-      portrait = sprite().crop((0,0,12,10)).resize((12*k,10*k), Image.Resampling.NEAREST)
+      portrait = self.portrait("hero").resize((12*k,10*k), Image.Resampling.NEAREST)
       image.alpha_composite(portrait,(x+3*k,y+5*k))
       count = min(len(lyric["text"]), int((time-lyric["start"])/lyric["reveal_seconds"]*len(lyric["text"])))
       for index, line in enumerate(lyric["glyphs"]):
@@ -523,7 +540,21 @@ def render(config_path, out, audio=None, lyrics=None, font=None, ffmpeg=None, st
   base = config_path.parent
   lyric_path = Path(lyrics).resolve() if lyrics else base/config["lyrics_file"] if config.get("lyrics_file") else None
   if lyric_path:
-    config["lyrics"] = parse_lrc(lyric_path.read_text(encoding="utf-8-sig"),config["duration"])
+    content = lyric_path.read_text(encoding="utf-8-sig")
+    if lyric_path.suffix.lower() == ".json":
+      source = json.loads(content)
+      config["lyrics"] = source.get("lyrics") if isinstance(source, dict) else source
+      if not isinstance(config["lyrics"], list):
+        raise ValueError("歌词 JSON 必须是数组或包含 lyrics 数组的对象。")
+      if any(not isinstance(row, dict) for row in config["lyrics"]):
+        raise ValueError("歌词 JSON 的每一行必须是对象。")
+      for row in config["lyrics"]:
+        if row.get("tokens"):
+          row.setdefault("mode", "karaoke")
+      if any(row.get("status") == "review_required" for row in config["lyrics"]):
+        raise ValueError("歌词 JSON 有待处理的行，请修正时间和 status 后再渲染。")
+    else:
+      config["lyrics"] = parse_lrc(content,config["duration"])
   validate(config)
   configured_font = font or (str(base/config["font"]) if config.get("font") else None)
   font_path = find_font(configured_font)

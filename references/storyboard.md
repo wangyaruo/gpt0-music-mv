@@ -102,3 +102,8 @@ consistent 16x20-pixel proportions, crisp pixel clusters, transparent background
 
 先确认一个角色母版，再生成动作变体；固定像素密度、调色板、朝向和透明边缘。
 字幕/HUD 留给确定性绘制，不能在每个生成镜头里重新画不同样式的 UI。
+
+
+## 外部素材与歌词时间轴
+
+需要自定义角色精灵、图片图层、关键帧、视差滚动或 WhisperX 时间轴导入时，参见 [素材与歌词流程](asset-pipeline.md) 和 `examples/composite-demo.json`。机器对齐草稿须听音确认。

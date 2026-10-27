@@ -63,7 +63,7 @@ python3 scripts/analyze_video.py /path/reference.mp4 --out output/analysis
 ## 建立稳定的像素世界
 
 - 先确定角色造型表：头身比例、发型、衣服色块和手持道具。全片复用同一套精灵。
-- 推荐 256×144 或 320×180 的逻辑画布，再用最近邻整数放大；示例为 256×144 → 1024×576。
+- 逻辑画布可用 256×144；`composite` 场景也支持 320×180。均以最近邻整数放大。
 - 角色动画可用 6–10 fps 的有限帧循环，输出帧率可按项目选择；两支参考片分别为 30 和 12 fps，不能由容器帧率推断角色实际动画帧率。像素坐标取整。
 - 视觉层分为天空/日月、远海或远景、中景、可行走地面、人物与粒子、HUD、歌词对白框。
 - 配色变化服务故事：例如明亮开局 → 暖色关系推进 → 暮色高潮 → 夜景收束。
@@ -74,7 +74,7 @@ python3 scripts/analyze_video.py /path/reference.mp4 --out output/analysis
 - 中文文字由字体渲染；不要让图像模型把整段歌词画进背景。使用支持目标语言的字体，字体缺失时明确报错。
 - CRT 扫描线、边缘暗角和轻微显示器倾斜只是末端修饰，不能压过文字和精灵可读性。
 
-已有角色 PNG/背景素材时优先复用。需要新的风格资产时，可调用当前环境可用的图像工具，逐张生成无文字背景或透明角色素材；模型、工具与付费额度必须以实际可用情况为准。
+已有角色 PNG/背景素材时优先复用。外部精灵图、分层场景及歌词对齐详见 [素材与歌词流程](references/asset-pipeline.md)。需要新的风格资产时，可调用当前环境可用的图像工具，逐张生成无文字背景或透明角色素材；模型、工具与付费额度必须以实际可用情况为准。
 
 ## 制作与渲染
 
@@ -89,11 +89,14 @@ python3 scripts/render_mv.py examples/demo.json --out output/demo.mp4
 python3 scripts/render_mv.py examples/rain-demo.json --out output/rain-demo.mp4
 # 连续卷轴、拾取、进度条与特写的无声示例：
 python3 scripts/render_mv.py examples/candy-demo.json --out output/candy-demo.mp4
+# 自定义精灵和多层视差场景的无声示例：
+python3 scripts/render_mv.py examples/composite-demo.json --out output/layer-demo.mp4
 # 将你自己的音频和时间轴配入：
 python3 scripts/render_mv.py my-storyboard.json --audio my-song.wav --lyrics my-song.lrc --out output/mv.mp4
 ```
 
-脚本路径相对于 skill 所在目录；JSON 内的音频/字体/歌词路径相对于 JSON 文件所在目录。
+脚本路径相对于 skill 所在目录；JSON 内的音频/字体/歌词和素材路径相对于 JSON 文件所在目录。
+已有 WhisperX 词时间 JSON 可使用 `scripts/align_lyrics.py` 生成歌词草稿；可选 WhisperX 本地音频流程需自行安装和准备模型。所有机器对齐需听音校准，无法匹配的行需要人工修复。
 FFmpeg 不在 PATH 时加 `--ffmpeg /path/to/ffmpeg`；中文字体不在默认位置时加 `--font /path/to/font.ttf`。
 用 `--still 8 --out output/frame.png` 在指定秒导出单帧；先确认关键场景，再渲染全片。
 脚本不会覆盖已存在的输出；确认替换自己的产物时加 `--overwrite`。
