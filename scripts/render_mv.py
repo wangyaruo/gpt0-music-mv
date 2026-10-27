@@ -137,8 +137,15 @@ def validate(config):
       raise ValueError("角色视角必须为 front/back/left/right。")
     if scene.get("weather", "clear") not in ("clear", "rain") or scene.get("bus", "none") not in ("none", "approach", "leave"):
       raise ValueError("weather 或 bus 类型无效。")
-    if scene.get("weather") == "rain" and scene["kind"] not in ("rain_city", "bus_stop"):
-      raise ValueError("当前雨层仅支持 rain_city 和 bus_stop。")
+    if scene.get("weather") == "rain" and scene["kind"] not in ("rain_city", "bus_stop", "crossing"):
+      raise ValueError("当前雨层仅支持 rain_city、bus_stop 和 crossing。")
+    level = scene.get("rain_level", 1.0)
+    if isinstance(level, (list, tuple)):
+      valid_level = len(level) == 2 and all(isinstance(v, (int, float)) and 0 <= v <= 1 for v in level)
+    else:
+      valid_level = isinstance(level, (int, float)) and 0 <= level <= 1
+    if not valid_level:
+      raise ValueError("rain_level 需要 0–1 的数值，或 [起, 止] 两元素数组。")
     if scene.get("bus", "none") != "none" and scene["kind"] != "bus_stop":
       raise ValueError("当前公交进出动画仅支持 bus_stop。")
     if "umbrella" in scene:
@@ -146,7 +153,7 @@ def validate(config):
       if (not isinstance(item, dict) or item.get("owner", "shared") not in ("hero", "partner", "shared") or
           item.get("color", "blue") not in ("blue", "pink")):
         raise ValueError("umbrella 需要有效的 owner 和 color。")
-      if scene["kind"] not in ("rain_city", "bus_stop", "classroom", "bookstore"):
+      if scene["kind"] not in ("rain_city", "bus_stop", "classroom", "bookstore", "crossing"):
         raise ValueError("当前雨伞仅支持雨夜城市、站台、教室和书店场景。")
       if item.get("owner") in ("partner", "shared") and not scene.get("partner"):
         raise ValueError("同伴或共用雨伞需要同伴出现在场景中。")
@@ -428,21 +435,21 @@ class Renderer:
       self.text(draw,(210*k,104*k),"远方",self.small,anchor="mt")
     dialogue = scene.get("dialogue")
     if dialogue:
-      draw.rectangle((6*k,20*k,(self.canvas[0]-6)*k,48*k),fill="#10213a",outline="#d5d5ca",width=max(1,k//2))
-      draw.rectangle((9*k,23*k,28*k,44*k),fill="#213d59",outline="#537a93",width=max(1,k//3))
+      draw.rectangle((6*k,26*k,250*k,54*k),fill="#10213a",outline="#d5d5ca",width=max(1,k//2))
+      draw.rectangle((9*k,29*k,28*k,50*k),fill="#213d59",outline="#537a93",width=max(1,k//3))
       portrait = self.portrait(dialogue.get("speaker", "hero"))
-      image.alpha_composite(portrait.resize((16*k,14*k),Image.Resampling.NEAREST),(10*k,25*k))
-      self.text(draw,(33*k,22*k),dialogue.get("name",""),self.small,color="#f3aac4")
+      image.alpha_composite(portrait.resize((16*k,14*k),Image.Resampling.NEAREST),(10*k,31*k))
+      self.text(draw,(33*k,28*k),dialogue.get("name",""),self.small,color="#f3aac4")
       for index, line in enumerate(dialogue["_lines"]):
-        self.text(draw,(33*k,(29+7*index)*k),line,self.small,color="#e7edf3")
+        self.text(draw,(33*k,(35+7*index)*k),line,self.small,color="#e7edf3")
     choice = scene.get("choice")
     if choice:
-      draw.rectangle((53*k,23*k,203*k,51*k),fill="#10213a",outline="#d5d5ca",width=max(1,k//2))
-      self.text(draw,(59*k,27*k),choice["prompt"],self.small,color="#fff0d2")
+      draw.rectangle((53*k,29*k,203*k,57*k),fill="#10213a",outline="#d5d5ca",width=max(1,k//2))
+      self.text(draw,(59*k,33*k),choice["prompt"],self.small,color="#fff0d2")
       for index, option in enumerate(choice["options"]):
         x = 62+index*(135//len(choice["options"]))
         color = "#ffacc7" if index == choice["selected"] else "#abb6c7"
-        self.text(draw,(x*k,38*k),("▶ " if index == choice["selected"] else "")+option,self.small,color=color)
+        self.text(draw,(x*k,44*k),("▶ " if index == choice["selected"] else "")+option,self.small,color=color)
 
   def event_overlays(self, draw, scene, time):
     k = self.scale
@@ -471,15 +478,25 @@ class Renderer:
     draw = ImageDraw.Draw(image)
     local = time-scene["start"]
     kind = scene["kind"]
-    if kind == "title":
-      title = cfg.get("title", "新的旅程")
+    if kind == "title" or scene.get("title_text"):
+      scrim = Image.new("RGBA", self.size, (0, 0, 0, 0))
+      fade = ImageDraw.Draw(scrim)
+      for band in range(6):
+        fade.rectangle((0, band*15*k, self.size[0], (band+1)*15*k), fill=(6, 9, 22, 118-band*8))
+      image = Image.alpha_composite(image, scrim)
+      draw = ImageDraw.Draw(image)
+      label = scene.get("title_text")
+      title = label if isinstance(label, str) else cfg.get("title", "新的旅程")
       self.text(draw, (128*k,29*k), title[:max(1,int(local*6))], self.title, color="#ffe58b", anchor="mt")
+      if scene.get("title_note"):
+        self.text(draw, (128*k,45*k), scene["title_note"], self.small, color="#c9d6e8", anchor="mt")
       if int(local*2)%2 == 0:
         self.text(draw, (128*k,70*k), "PRESS START", self.small, anchor="mt")
     elif kind == "equipment":
-      self.text(draw, (13*k,23*k), "装备", self.small, color="#ecdf85")
+      self.text(draw, (13*k,23*k), scene.get("menu_title", "装备"), self.small, color="#ecdf85")
       self.text(draw, (127*k,23*k), "角色", self.small, color="#ecdf85")
-      for index, text in enumerate(("上衣    海风衬衫", "手持    旅行吉他", "状态    勇气 +1")):
+      rows = scene.get("rows") or ("上衣    海风衬衫", "手持    旅行吉他", "状态    勇气 +1")
+      for index, text in enumerate(rows[:3]):
         self.text(draw, (130*k,(44+index*19)*k), text, self.small)
     elif kind == "map":
       self.text(draw, (9*k,8*k), "世界地图", self.font, color="#f7df7b")
@@ -487,8 +504,13 @@ class Renderer:
     elif kind == "spotlight":
       self.text(draw, (128*k,10*k), scene.get("label","勇气 MAX"), self.font, anchor="mt")
     elif kind == "ending":
-      self.text(draw, (128*k,18*k), "任务完成", self.title, color="#ffe895", anchor="mt")
-      self.text(draw, (128*k,39*k), cfg.get("credit",""), self.small, anchor="mt")
+      head_y = 18 if not scene.get("_state") else 52
+      scrim = Image.new("RGBA", self.size, (0, 0, 0, 0))
+      ImageDraw.Draw(scrim).rectangle((30*k, (head_y-10)*k, 226*k, (head_y+32)*k), fill=(6, 9, 22, 116))
+      image = Image.alpha_composite(image, scrim)
+      draw = ImageDraw.Draw(image)
+      self.text(draw, (128*k,head_y*k), scene.get("ending_title", "任务完成"), self.title, color="#ffe895", anchor="mt")
+      self.text(draw, (128*k,(head_y+22)*k), scene.get("ending_note", cfg.get("credit", "")), self.small, anchor="mt")
     elif kind not in RAIN_KINDS and kind != "composite":
       self.text(draw, (47*k,5*k), "×{:02d}".format(scene["coins"]), self.small)
       self.text(draw, (247*k,5*k), scene.get("label",""), self.small, anchor="rt")
@@ -526,6 +548,15 @@ class Renderer:
           pos += self.font.getlength(char)
       if int(time*3)%2 == 0:
         draw.polygon([(x+w-7*k,y+h-5*k),(x+w-3*k,y+h-5*k),(x+w-5*k,y+h-3*k)],fill="#ecd668")
+    shade = 0.0
+    fade_in, fade_out = cfg.get("fade_in", 0), cfg.get("fade_out", 0)
+    if fade_in and time < fade_in:
+      shade = max(shade, 1-time/fade_in)
+    if fade_out and time > cfg["duration"]-fade_out:
+      shade = max(shade, (time-(cfg["duration"]-fade_out))/fade_out)
+    if shade > 0:
+      veil = Image.new("RGBA", self.size, (0, 0, 0, int(255*min(1, shade))))
+      image = Image.alpha_composite(image.convert("RGBA"), veil)
     if cfg.get("crt",True):
       image = Image.alpha_composite(image,self.crt_overlay)
       width,height = self.size

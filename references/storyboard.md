@@ -25,13 +25,14 @@
 - `bpm`、`beat_offset`：已确认或人工修正的节拍参数；不是凭歌词猜出的 BPM。
 - `audio`、`lyrics_file`、`font`：可选路径，相对于 JSON 文件；CLI 参数优先。
 - `crt`：是否叠加轻微扫描线、暗角和固定显示器透视。
+- `fade_in`、`fade_out`：片头/片尾淡入淡出的秒数，默认 0；只影响画面，不改变音频时长。
 - `scenes`：从 0 连续覆盖 duration 的镜头数组，不允许空洞或重叠。
 - `lyrics`：句级字幕数组，`start/end/text` 必填，可选 `reveal_seconds`；不能跨句重叠。
 - `subtitle_mode`：`dialogue`（默认的对白框逐字显示）或 `karaoke`（底部白/粉/灰逐字高亮）。单句可用 `mode` 覆盖。
 
 每个 scene：
 - `start/end`：起止秒数；end 不包含。
-- `kind`：title / beach / equipment / drive / battle / map / spotlight / night / ending / rain_city / bus_stop / bus_interior / classroom / bookstore / memory_items / city_map / candy_road。
+- `kind`：title / beach / equipment / drive / battle / map / spotlight / night / ending / rain_city / bus_stop / bus_interior / classroom / bookstore / memory_items / city_map / crossing / rooftop / candy_road / composite。
 - `palette`：day / sunset / night，决定光照世界。
 - `label`：右上关卡名或菜单名。
 - `action`：walk / jump / play / idle。
@@ -40,9 +41,13 @@
 - `narrative_time`：present（默认）/ memory / alternate；`branch` 是分支名，默认 `main`。每个组合独立保存状态与金币，返回现实后恢复现实分支。
 - `state`：当前分支的增量状态，可含 `party`（hero/partner 列表）、`affinity`（0–100）、`distance`（`{"value": 14, "unit": "km"}`，单位 km/m/cm）、`inventory`（字符串列表）和 `gauges`（最多两个名称及 0–100 数值，例如 `{"温暖": 10}`）。已有字段发生变化时填写非空 `event`；未提及的字段沿用本分支上次的值。显式替换 `gauges` 时提供完整量表集合。
 - `event`：对状态变化或金币减少的简短原因说明。状态初次设置不要求 event，但写明会更容易检查剧情。
-- `weather`：clear 或 rain。`rain_city` 默认 rain，`bus_stop` 默认 clear；要为站台添加雨须明确写 `"weather":"rain"`。两者的内置城市底图是夜景，clear 仅表示无雨，并不自动变成白天。雨层仅支持这两种场景。
+- `weather`：clear 或 rain。`rain_city` 和 `crossing` 默认 rain，`bus_stop` 默认 clear；要为站台添加雨须明确写 `"weather":"rain"`。两者的内置城市底图是夜景，clear 仅表示无雨，并不自动变成白天。雨层支持 rain_city、bus_stop 和 crossing。
+- `rain_level`：雨量 0–1，默认 1；写成 `[起, 止]` 时在一个镜头内线性渐变。`weather: clear` 时恒为 0，不参与渐变。
+- `ending_title`、`ending_note`：`ending` 场景的结局卡标题与说明，可覆盖默认的“任务完成”和 `credit`。有状态面板时结局卡下移避开顶部数值。
 - `bus`：bus_stop 的 none / approach / leave。
-- `umbrella`：`{"owner":"hero|partner|shared","color":"blue|pink"}`；适用于 rain_city、bus_stop、classroom、bookstore，partner/shared 要求同伴在场。雨伞由场景显式设置，不会自动跨场景继承。
+- `umbrella`：`{"owner":"hero|partner|shared","color":"blue|pink"}`；适用于 rain_city、bus_stop、classroom、bookstore、crossing，partner/shared 要求同伴在场。雨伞由场景显式设置，不会自动跨场景继承。
+- `signal`：`crossing` 的路口红绿灯，`auto`（默认，镜头后段转绿）或 `red`（始终红灯）；`far_umbrella` 指定对岸那把伞的颜色 blue/pink。
+- `solo`：`bus_interior` 是否只保留少数乘客与空座位，用于二人独处的车厢。
 - `hero_view`、`partner_view`：front / back / left / right，默认 front；示例精灵提供简化视角，不是完整的逐方向角色图集。
 - `era_label`：回忆/假设分支的画面标记；回忆默认使用暖褐色，可用 `memory_filter: false` 关闭。
 - `dialogue`：`{"speaker":"hero|partner","name":"同伴","text":"台词"}`，显示顶部头像对白。

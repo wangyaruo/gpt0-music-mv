@@ -1,0 +1,37 @@
+{
+  "title": "过街与天台",
+  "credit": "原创过街/天台叙事示例 · 无声预览",
+  "duration": 12,
+  "fps": 12,
+  "animation_fps": 8,
+  "scale": 4,
+  "bpm": 100,
+  "crt": false,
+  "subtitle_mode": "karaoke",
+  "fade_in": 0.8,
+  "fade_out": 1.2,
+  "scenes": [
+    {"start": 0, "end": 3, "kind": "crossing", "label": "对街", "weather": "rain",
+     "rain_level": [0.2, 1.0], "partner": true, "hero_view": "left", "partner_view": "left",
+     "umbrella": {"owner": "hero", "color": "blue"},
+     "state": {"party": ["hero", "partner"], "affinity": 30, "distance": {"value": 12, "unit": "m"}},
+     "event": "隔着马路认出对方，距离开始缩短",
+     "meaning": "一条街分成近景与对岸，雨量在镜头内从细雨涨到满"},
+    {"start": 3, "end": 6, "kind": "rooftop", "label": "天台", "palette": "night",
+     "action": "walk", "hero_view": "right", "weather": "clear",
+     "state": {"distance": {"value": 0, "unit": "m"}}, "event": "走上天台，距离归零",
+     "meaning": "云海之上唯一的晴空，用远景换掉街道的压迫感"},
+    {"start": 6, "end": 9, "kind": "bus_interior", "label": "车厢", "solo": true, "partner": true,
+     "dialogue": {"speaker": "partner", "name": "同伴", "text": "这一站我们一起下"},
+     "meaning": "二人独处的车厢，对白与底部歌词分层"},
+    {"start": 9, "end": 12, "kind": "ending", "label": "收束",
+     "ending_title": "支线完成", "ending_note": "两个人一起下车了",
+     "meaning": "结局卡按状态换位，并覆盖默认文案"}
+  ],
+  "lyrics": [
+    {"start": 0, "end": 3, "text": "雨把街灯拉得很长", "timing_source": "estimated"},
+    {"start": 3, "end": 6, "text": "天台上终于没有雨", "timing_source": "estimated"},
+    {"start": 6, "end": 9, "text": "这一站一起下", "timing_source": "estimated"},
+    {"start": 9, "end": 12, "text": "支线到此完成", "timing_source": "estimated"}
+  ]
+}

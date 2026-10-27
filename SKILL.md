@@ -87,7 +87,8 @@ python3 scripts/analyze_video.py /path/reference.mp4 --out output/analysis
 
 先依据歌曲定位选取或制作场景，明确写出天气；不要直接沿用示例中与歌曲无关的设定。公交站默认无雨，但内置底图仍是夜景。
 
-本仓库提供程序化原创像素资产：海滩、装备、驾车、战斗、地图、夜景和结尾，雨夜城市、公交站、车厢、教室、书店、记忆物品、城市地图，以及糖果主题横向卷轴道路。
+本仓库提供程序化原创像素资产：海滩、装备、驾车、战斗、地图、夜景和结尾，雨夜城市、公交站、车厢、教室、书店、记忆物品、城市地图、横穿马路、楼顶天台，以及糖果主题横向卷轴道路。
+雨量用 `weather` 与 `rain_level` 控制：`clear` 停雨，`rain` 配合 0–1 的数值或 `[起, 止]` 数组可让一个镜头内渐变；片头片尾用 `fade_in`/`fade_out` 秒数淡入淡出，结局卡可用 `ending_title`/`ending_note` 覆盖默认文案。
 卷轴场景支持在不同镜头间延续相机位置；可配置拾取、量表、存档提示、通关、视觉快进、眼睛特写和字幕关键词颜色。
 它是可运行的风格原型；酒吧、俯视脚印、篝火等未实现镜头仍需按分镜扩展或提供背景资产。
 
@@ -100,6 +101,8 @@ python3 scripts/render_mv.py examples/rain-demo.json --out output/rain-demo.mp4
 python3 scripts/render_mv.py examples/candy-demo.json --out output/candy-demo.mp4
 # 自定义精灵和多层视差场景的无声示例：
 python3 scripts/render_mv.py examples/composite-demo.json --out output/layer-demo.mp4
+# 过街、天台、车厢对白与动态结局卡的无声示例：
+python3 scripts/render_mv.py examples/crossing-demo.json --out output/crossing-demo.mp4
 # 将你自己的音频和时间轴配入：
 python3 scripts/render_mv.py my-storyboard.json --audio my-song.wav --lyrics my-song.lrc --out output/mv.mp4
 ```

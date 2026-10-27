@@ -13,45 +13,63 @@ PALETTES = {
   "night": {"top": (11, 17, 43), "bottom": (67, 65, 111), "sea": "#25456c", "sand": "#9b96b3",
             "wave": "#b4cee6", "leaf": "#172238", "trunk": "#1d2239", "sun": "#f0e9c4"}
 }
-HERO = (
-  "...KKKKK....", "..KKKKKKK...", ".KKKKKKKKK..", ".KKSSKSSKK..", ".KSSSSSSSK..",
-  "..SWSSWS....", "..SSSSSSS...", "...SSMSS....", "....SSS.....", "..BBBBBBB...",
+# 12 x 15 art blocks; rows 15..18 (legs) are drawn procedurally so they can swing.
+# front art faces the camera, side art faces +x and is mirrored for the left view.
+HERO_FRONT = (
+  "....KKKK....", "...KKKKKK...", "..KKKKKKKK..", "..KKKKKKKK..", "..KSSSSSSK..",
+  "..KSWSSWSK..", "..KSSSSSSK..", "...SSMMSS...", "....SSSS....", "..BBBBBBB...",
   ".SBBBWBBBS..", ".SBBBBBBBS..", "..BBBBBBB...", "...DDDDD....", "...DDDDD...."
 )
-PARTNER = (
-  "...HHHHH....", "..HHHHHHH...", ".HHHHHHHHH..", ".HHSSSSSHH..", ".HSSSSSSSH..",
-  ".HSSWSSWSH..", ".HSSSSSSSH..", ".HHSSMSSHH..", "..HHSSSHH...", "...OOOOO....",
+HERO_SIDE = (
+  "...KKKKK....", "..KKKKKKK...", ".KKKKKKKK...", ".KKKKKKKK...", ".KKKKSSSSS..",
+  ".KKKKSSSWS..", ".KKKSSSSSS..", ".KKKSSSSMS..", "..KKSSSSS...", "...BBBBB....",
+  "..BBBBBB....", "..BBBBBB....", "...BBBBB....", "...DDDDD....", "...DDDDD...."
+)
+PARTNER_FRONT = (
+  "...HHHHH....", "..HHHHHHH...", ".HHHHHHHHH..", ".HHHHHHHHH..", ".HHSSSSSHH..",
+  ".HSSWSSWSH..", ".HSSSSSSSH..", ".HHSSMMSSH..", "..HHSSSHH...", "...OOOOO....",
   "..SOOOOOS...", "..OOOOOOO...", ".OOOOOOOOO..", "..OOOOOOO...", "...SSSSS...."
 )
-COLORS = {"K": "#242a3d", "H": "#754650", "S": "#fbd1aa", "W": "#28334a", "M": "#dc7c78",
+PARTNER_SIDE = (
+  "...HHHHH....", "..HHHHHHH...", ".HHHHHHHH...", ".HHHHHHHH...", ".HHHHSSSSS..",
+  ".HHHHSSSWS..", ".HHHSSSSSS..", ".HHHSSSSMS..", "..HHSSSSS...", "..HOOOOOO...",
+  "..HOOOOOO...", ".HHOOOOOO...", "..OOOOOOO...", ".OOOOOOOO...", "...SSSSS...."
+)
+HERO = HERO_FRONT
+PARTNER = PARTNER_FRONT
+COLORS = {"K": "#242a3d", "H": "#754650", "S": "#fbd1aa", "W": "#28334a", "M": "#b25d5f",
           "B": "#44b4bf", "D": "#294b70", "O": "#ee9471"}
-RAIN_KINDS = {"rain_city", "bus_stop", "bus_interior", "classroom", "bookstore", "memory_items", "city_map"}
-KIND_NAMES = {"title", "beach", "equipment", "drive", "battle", "map", "spotlight", "night", "ending", "candy_road", "composite"} | RAIN_KINDS
+RAIN_KINDS = {"rain_city", "bus_stop", "bus_interior", "classroom", "bookstore", "memory_items",
+              "city_map", "crossing", "rooftop"}
+KIND_NAMES = {"title", "beach", "equipment", "drive", "battle", "map", "spotlight", "night",
+              "ending", "candy_road", "composite"} | RAIN_KINDS
 
 
-@lru_cache(maxsize=64)
+@lru_cache(maxsize=256)
 def sprite(partner=False, step=0, silhouette=False, view="front"):
+  side = view in ("left", "right")
+  art = (PARTNER_SIDE if side else PARTNER_FRONT) if partner else (HERO_SIDE if side else HERO_FRONT)
+  grid = [list(row) for row in art]
+  if view == "back":
+    hair = "H" if partner else "K"
+    for y in range(4, 9):
+      for x in range(12):
+        if grid[y][x] in "SWM":
+          grid[y][x] = hair
   image = Image.new("RGBA", (12, 19))
   draw = ImageDraw.Draw(image)
-  for y, row in enumerate(PARTNER if partner else HERO):
+  for y, row in enumerate(grid):
     for x, key in enumerate(row):
       if key != ".":
         draw.point((x, y), fill="#181d32" if silhouette else COLORS[key])
-  if view == "back":
-    hair = "#181d32" if silhouette else COLORS["H" if partner else "K"]
-    draw.rectangle((2, 3, 9, 8), fill=hair)
-    if partner:
-      draw.rectangle((1, 7, 10, 10), fill=hair)
-  elif view in ("left", "right"):
-    skin = "#181d32" if silhouette else COLORS["S"]
-    draw.rectangle((3, 4, 8, 8), fill=skin)
-    draw.point((4 if view == "left" else 7, 5), fill="#28334a")
   color = "#181d32" if silhouette else "#fbd1aa" if partner else "#294b70"
   shift = 1 if step % 2 else 0
   draw.rectangle((3 - shift, 15, 4, 17), fill=color)
   draw.rectangle((7, 15, 8 + shift, 17), fill=color)
   draw.rectangle((2 - shift, 18, 4, 18), fill="#252a40")
   draw.rectangle((7, 18, 9 + shift, 18), fill="#252a40")
+  if view == "left":
+    image = image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
   return image
 
 

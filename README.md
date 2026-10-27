@@ -55,6 +55,9 @@ python3 scripts/render_mv.py examples/candy-demo.json --out output/candy-demo.mp
 # 自定义精灵和分层视差的原创无声示例：1280×720、12 fps。
 python3 scripts/render_mv.py examples/composite-demo.json --out output/layer-demo.mp4
 
+# 过街、天台、车厢对白与动态结局卡的原创无声示例：1024×576、12 fps。
+python3 scripts/render_mv.py examples/crossing-demo.json --out output/crossing-demo.mp4
+
 # 检查一个关键画面。
 python3 scripts/render_mv.py examples/demo.json --still 6.5 --out output/equipment.png
 
@@ -87,7 +90,7 @@ JSON 内的 `audio`、`lyrics_file`、`font`、场景 `background` 路径相对�
 
 | 能力 | 实现 |
 |---|---|
-| 像素场景 | 海滩、雨夜城市、公交站、公交车厢、教室、书店、记忆卡片、城市地图、糖果卷轴 |
+| 像素场景 | 海滩、雨夜城市、公交站、公交车厢、教室、书店、记忆卡片、城市地图、横穿马路、楼顶天台、糖果卷轴 |
 | 游戏叙事 | 装备、驾车、战斗、地图、回忆、选择菜单、收集、存档提示、通关、视觉快进和特写 |
 | 角色动画 | 原创角色或外部 PNG 精灵图；动画帧、速度、锚点、朝向和头像可配置 |
 | 状态与字幕 | 事件驱动的金币/物品/进度条、队伍/好感/距离、独立对白、卡拉 OK 与关键词颜色 |
@@ -96,7 +99,7 @@ JSON 内的 `audio`、`lyrics_file`、`font`、场景 `background` 路径相对�
 | 视频 | 最近邻整数放大、轻 CRT、H.264、可选 AAC 音频、成片元数据检查 |
 | 参考分析 | 定时抽帧、联系表、转场候选；安装可选 NumPy 后提供 BPM 候选 |
 
-公交站默认无雨，雨夜城市默认有雨；两种内置城市底图均为夜景，`weather: clear` 不会将其变成白天。原片中的酒吧、俯视脚印、篝火、背包网格、摩天轮和更复杂的镜头运动仍需扩展场景或提供资产。
+公交站默认无雨，雨夜城市和横穿马路默认有雨；两种内置城市底图均为夜景，`weather: clear` 不会将其变成白天。雨量可用 `rain_level` 调成 0–1 的固定值，或写成 `[起, 止]` 让一个镜头内的雨渐变。`fade_in`/`fade_out` 控制片头片尾淡入淡出，`ending_title`/`ending_note` 覆盖结局卡文案。原片中的酒吧、俯视脚印、篝火、背包网格、摩天轮和更复杂的镜头运动仍需扩展场景或提供资产。
 存档点只是一段画面，不会保存游戏进度；视觉快进不改变音频速度。
 程序化像素资产在 `scripts/pixel_world.py` 中，可替换配色、人物图案和场景。
 基础安装不包含语音识别或自动音乐生成。可选 WhisperX 必须另行安装并准备模型；自动匹配结果需要听音校对，无法匹配的行需要人工补全。只有句级 LRC 时的逐字高亮是近似阅读动画。
@@ -116,7 +119,7 @@ scripts/analyze_song.py       歌曲时长、分段 RMS 和可选 BPM 候选
 references/song-direction.md  歌曲定位与场景选择
 scripts/render_mv.py          时间轴、对白与视频合成
 scripts/pixel_world.py        原创像素角色和场景
-scripts/rain_scenes.py        雨夜城市、公交、回忆与地图
+scripts/rain_scenes.py        雨夜城市、公交、过街、天台、回忆与地图
 scripts/candy_scenes.py       糖果世界、分层卷轴和眼睛特写
 scripts/narrative_events.py   定时事件、状态继承与相机位置
 scripts/align_lyrics.py       将确认歌词和 WhisperX 词时间匹配为可编辑草稿
@@ -128,6 +131,7 @@ scripts/media_utils.py        FFmpeg 查找与元数据读取
 examples/demo.json            可直接渲染的九场景样例
 examples/rain-demo.json       雨夜与分支叙事样例
 examples/candy-demo.json      卷轴、收集与进度变化样例
+examples/crossing-demo.json   过街、天台、车厢对白与动态结局卡样例
 assets/preview.png            由样例生成的画面预览
 tests/                        时间轴、状态、字幕与渲染检查
 ```
