@@ -26,7 +26,7 @@ PARTNER = (
 COLORS = {"K": "#242a3d", "H": "#754650", "S": "#fbd1aa", "W": "#28334a", "M": "#dc7c78",
           "B": "#44b4bf", "D": "#294b70", "O": "#ee9471"}
 RAIN_KINDS = {"rain_city", "bus_stop", "bus_interior", "classroom", "bookstore", "memory_items", "city_map"}
-KIND_NAMES = {"title", "beach", "equipment", "drive", "battle", "map", "spotlight", "night", "ending"} | RAIN_KINDS
+KIND_NAMES = {"title", "beach", "equipment", "drive", "battle", "map", "spotlight", "night", "ending", "candy_road"} | RAIN_KINDS
 
 
 @lru_cache(maxsize=64)
@@ -167,6 +167,9 @@ def scene_frame(scene, time, bpm, beat_offset=0):
   if kind in RAIN_KINDS:
     from rain_scenes import render_rain_scene
     return render_rain_scene(scene, time)
+  if kind == "candy_road":
+    from candy_scenes import render_candy_scene
+    return render_candy_scene(scene, time)
   palette_name = scene.get("palette", "night" if kind in ("night", "ending") else "day")
   image = background(time, palette_name)
   if scene.get("background_image") is not None:

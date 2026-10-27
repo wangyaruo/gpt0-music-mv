@@ -2,8 +2,8 @@
 
 一个可复用的 **像素 RPG 叙事音乐视频 skill**：把歌词变成装备、关卡、NPC 对话、音符战斗、世界地图和宝箱奖励，再用固定角色、游戏 HUD 与逐字对白把它们串成 MV。
 
-基于两支用户提供的像素 RPG 参考视频：海滩关卡约 **2 分 55 秒、1024×576、30 fps**，
-雨夜回忆约 **3 分 27 秒、1280×720、12 fps**。观察见 [海滩参考分析](references/reference-analysis.md) 和 [雨夜参考分析](references/reference-analysis-rain.md)。
+基于三支用户提供的像素 RPG 参考视频：海滩关卡、雨夜回忆和糖果卷轴。观察见
+[海滩参考分析](references/reference-analysis.md)、[雨夜参考分析](references/reference-analysis-rain.md) 和 [卷轴收集参考分析](references/reference-analysis-candy.md)。
 
 ![原创示例的九种场景](assets/preview.png)
 
@@ -12,6 +12,10 @@
 雨夜、回忆与选择分支的原创示例：
 
 ![原创雨夜示例的场景预览](assets/rain-preview.png)
+
+连续卷轴、收集和进度变化的原创示例：
+
+![原创糖果卷轴示例的场景预览](assets/candy-preview.png)
 
 ## 用作 Codex skill
 
@@ -40,6 +44,9 @@ python3 scripts/render_mv.py examples/demo.json --out output/demo.mp4
 
 # 24 秒雨夜示例：1280×720、12 fps，含对白、关系状态和卡拉 OK 高亮。
 python3 scripts/render_mv.py examples/rain-demo.json --out output/rain-demo.mp4
+
+# 24 秒卷轴示例：1024×576、30 fps，含收集、进度条、特写和视觉快进。
+python3 scripts/render_mv.py examples/candy-demo.json --out output/candy-demo.mp4
 
 # 检查一个关键画面。
 python3 scripts/render_mv.py examples/demo.json --still 6.5 --out output/equipment.png
@@ -72,15 +79,17 @@ JSON 内的 `audio`、`lyrics_file`、`font`、场景 `background` 路径相对�
 
 | 能力 | 实现 |
 |---|---|
-| 像素场景 | 海滩、雨夜城市、公交站、公交车厢、教室、书店、记忆卡片和城市地图 |
-| 游戏叙事 | 装备、驾车、战斗、地图、回忆与假设分支、选择菜单和结尾 |
+| 像素场景 | 海滩、雨夜城市、公交站、公交车厢、教室、书店、记忆卡片、城市地图、糖果卷轴 |
+| 游戏叙事 | 装备、驾车、战斗、地图、回忆、选择菜单、收集、存档提示、通关、视觉快进和特写 |
 | 角色动画 | 原创角色、走路、跳跃、弹奏、正面/背面/侧面、双人同场和雨伞 |
-| 状态与字幕 | 可解释的金币变化、队伍/好感/距离/物品、独立对白与歌词高亮 |
+| 状态与字幕 | 事件驱动的金币/物品/进度条、队伍/好感/距离、独立对白、卡拉 OK 与关键词颜色 |
+| 连续卷轴 | 固定角色、远中近分层滚动；同一故事分支与世界的镜头位置可继承 |
 | 歌词 | JSON 句级及可选字/词时间戳、标准 LRC、多时间戳、offset |
 | 视频 | 最近邻整数放大、轻 CRT、H.264、可选 AAC 音频、成片元数据检查 |
 | 参考分析 | 定时抽帧、联系表、转场候选；安装可选 NumPy 后提供 BPM 候选 |
 
-原片中的酒吧、俯视脚印、篝火和更复杂的镜头运动并未冒充已实现功能；skill 会指导为新分镜扩展绘制函数或提供资产。
+原片中的酒吧、俯视脚印、篝火、背包网格、摩天轮和更复杂的镜头运动仍需扩展场景或提供资产。
+存档点只是一段画面，不会保存游戏进度；视觉快进不改变音频速度。
 程序化像素资产在 `scripts/pixel_world.py` 中，可替换配色、人物图案和场景。
 现有示例不含自动语音识别、强制对齐或自动音乐生成。用户可提供字/词时间戳；只有句级 LRC 时的逐字高亮是近似阅读动画。
 分词时间戳的来源按用户声明记录，并不自动代表已听音核验。BPM 候选存在半拍/倍拍歧义，必须核对。
@@ -92,14 +101,18 @@ SKILL.md                      技能入口
 agents/openai.yaml            技能展示信息
 references/reference-analysis.md  原片观察、实测参数与结构
 references/reference-analysis-rain.md 第二支参考片及增补方法
+references/reference-analysis-candy.md 第三支参考片及卷轴方法
 references/storyboard.md      歌词映射、分镜契约、资产提示词
 scripts/analyze_video.py      参考视频分析
 scripts/render_mv.py          时间轴、对白与视频合成
 scripts/pixel_world.py        原创像素角色和场景
 scripts/rain_scenes.py        雨夜城市、公交、回忆与地图
+scripts/candy_scenes.py       糖果世界、分层卷轴和眼睛特写
+scripts/narrative_events.py   定时事件、状态继承与相机位置
 scripts/media_utils.py        FFmpeg 查找与元数据读取
 examples/demo.json            可直接渲染的九场景样例
 examples/rain-demo.json       雨夜与分支叙事样例
+examples/candy-demo.json      卷轴、收集与进度变化样例
 assets/preview.png            由样例生成的画面预览
 tests/                        时间轴、状态、字幕与渲染检查
 ```
@@ -117,6 +130,7 @@ python3 -m unittest discover -s tests -v
 - 分析脚本运行于原始视频：18 张抽帧、30 个合并后的画面变化候选。
 - 查看九个关键场景的渲染预览，确认中文与对白区域可见。
 - 雨夜示例的原创无声画面为 1280×720、12 fps；其歌词、时间戳和剧情只用于演示。
+- 卷轴示例的原创无声画面为 1024×576、30 fps；事件、字幕和道具均为演示数据。
 
 `output/`、原始视频及音频文件都被 Git 忽略。此仓库只发布 skill、代码、原创示例配置和原创预览图。
 

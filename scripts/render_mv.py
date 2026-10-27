@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Render a deterministic pixel-RPG lyric MV with optional user-provided audio."""
 import argparse
+import copy
 import json
 import math
 import os
@@ -11,6 +12,7 @@ import tempfile
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 from media_utils import ffmpeg_path, probe
+from narrative_events import prepare_events, scroll_position, state_at
 from pixel_world import KIND_NAMES, PALETTES, RAIN_KINDS, scene_frame, sprite
 
 
@@ -66,6 +68,7 @@ def validate(config):
   cursor = 0
   tracks = {}
   coin_tracks = {}
+  camera_tracks = {}
   for scene in scenes:
     if not all(finite_number(scene.get(key)) for key in ("start", "end")):
       raise ValueError("场景 start/end 必须是有限数。")
@@ -85,8 +88,8 @@ def validate(config):
       raise ValueError("narrative_time 或 branch 无效。")
     track = (narrative_time, branch)
     change = scene.get("state", {})
-    if not isinstance(change, dict) or set(change) - {"party", "affinity", "distance", "inventory"}:
-      raise ValueError("state 仅支持 party、affinity、distance、inventory。")
+    if not isinstance(change, dict) or set(change) - {"party", "affinity", "distance", "inventory", "gauges"}:
+      raise ValueError("state 仅支持 party、affinity、distance、inventory、gauges。")
     if "party" in change and (not isinstance(change["party"], list) or
         any(not isinstance(value, str) or value not in ("hero", "partner") for value in change["party"]) or
         len(set(change["party"])) != len(change["party"])):
@@ -101,15 +104,20 @@ def validate(config):
       if (not isinstance(distance, dict) or set(distance) != {"value", "unit"} or
           not finite_number(distance["value"]) or distance["value"] < 0 or distance["unit"] not in ("km", "m", "cm")):
         raise ValueError("distance 需要非负 value 和 km/m/cm 单位。")
-    state = dict(tracks.get(track, {}))
+    if "gauges" in change:
+      gauges = change["gauges"]
+      if (not isinstance(gauges, dict) or len(gauges) > 2 or
+          any(not isinstance(name, str) or not 1 <= len(name) <= 8 or not finite_number(value) or not 0 <= value <= 100
+              for name, value in gauges.items())):
+        raise ValueError("gauges 最多两个，名称不超过 8 字，数值在 0–100 之间。")
+    state = copy.deepcopy(tracks.get(track, {}))
     event = scene.get("event", "")
     if not isinstance(event, str):
       raise ValueError("event 必须是说明状态变化的字符串。")
     if any(key in state and state[key] != value for key, value in change.items()) and not event.strip():
       raise ValueError("已有状态发生变化时，必须填写 event 说明原因。")
     state.update(change)
-    tracks[track] = state
-    scene["_state"] = dict(state)
+    scene["_state"] = copy.deepcopy(state)
     if "party" in state and "partner" not in scene:
       scene["partner"] = "partner" in state["party"]
     last_coins = coin_tracks.get(track, 0)
@@ -117,7 +125,6 @@ def validate(config):
     if type(coins) is not int or coins < 0 or (coins < last_coins and not event.strip()):
       raise ValueError("coins 必须非负；减少时必须通过 event 说明原因。")
     scene["coins"] = coins
-    coin_tracks[track] = coins
     scene["_animation_fps"] = config.get("animation_fps", 8)
     if any(scene.get(key, "front") not in ("front", "back", "left", "right") for key in ("hero_view", "partner_view")):
       raise ValueError("角色视角必须为 front/back/left/right。")
@@ -150,6 +157,27 @@ def validate(config):
           any(not isinstance(option, str) or not option for option in choice["options"]) or
           type(choice.get("selected")) is not int or not 0 <= choice["selected"] < len(choice["options"])):
         raise ValueError("choice 需要 prompt、2–3 个选项和有效的 selected 下标。")
+    end_state, end_coins = prepare_events(scene, state, coins)
+    if (scene.get("dialogue") or scene.get("choice")) and any(
+        item["kind"] in ("checkpoint", "stage_clear") for item in scene.get("events", [])):
+      raise ValueError("对白/选择与 checkpoint/stage_clear 会重叠，请拆分场景。")
+    tracks[track], coin_tracks[track] = end_state, end_coins
+    if scene["kind"] == "candy_road":
+      camera = scene.get("camera", {})
+      if not isinstance(camera, dict) or set(camera) - {"world", "speed", "offset"}:
+        raise ValueError("camera 仅支持 world、speed 和 offset。")
+      world = camera.get("world", "main")
+      if not isinstance(world, str) or not world.strip():
+        raise ValueError("camera.world 必须是非空字符串。")
+      camera_key = (narrative_time, branch, world)
+      previous = camera_tracks.get(camera_key, {"offset": 0, "speed": 8})
+      speed, offset = camera.get("speed", previous["speed"]), camera.get("offset", previous["offset"])
+      if not finite_number(speed) or not -40 <= speed <= 40 or not finite_number(offset):
+        raise ValueError("camera.speed 需要在 -40–40 之间，offset 必须是有限数。")
+      scene["_scroll_start"], scene["_scroll_speed"] = offset, speed
+      camera_tracks[camera_key] = {"offset": scroll_position(scene, scene["end"]), "speed": speed}
+    elif "camera" in scene:
+      raise ValueError("camera 目前仅支持 candy_road。")
     cursor = scene["end"]
   if abs(cursor-config["duration"]) > .00001:
     raise ValueError("场景必须覆盖完整 duration。")
@@ -180,6 +208,16 @@ def validate(config):
         raise ValueError("所有 token 的 text 拼接后必须与整句歌词一致。")
     if lyric.get("timing_source", "estimated") not in ("manual", "aligned", "estimated"):
       raise ValueError("timing_source 必须为 manual/aligned/estimated。")
+    highlights = lyric.get("highlights", [])
+    if not isinstance(highlights, list):
+      raise ValueError("highlights 必须为列表。")
+    end_index = 0
+    for highlight in highlights:
+      if (not isinstance(highlight, dict) or type(highlight.get("start")) is not int or
+          type(highlight.get("end")) is not int or not end_index <= highlight["start"] < highlight["end"] <= len(lyric["text"]) or
+          not isinstance(highlight.get("color"), str) or not re.fullmatch(r"#[0-9a-fA-F]{6}", highlight["color"])):
+        raise ValueError("highlights 需要按字符索引排序的不重叠区间和 #RRGGBB 颜色。")
+      end_index = highlight["end"]
     reveal = lyric.get("reveal_seconds", min(1.5, (lyric["end"]-lyric["start"])*.65))
     if not finite_number(reveal) or not 0 < reveal <= lyric["end"]-lyric["start"]:
       raise ValueError("reveal_seconds 必须大于零且不超过句子时长。")
@@ -248,6 +286,15 @@ def karaoke_states(lyric, time):
   return ["played" if index < active else "active" if index == active else "pending" for index in range(len(text))]
 
 
+def lyric_color(lyric, index, status):
+  colors = {"played": "#f3f3f6", "active": "#ff9dc0", "pending": "#7e87a2"}
+  if status == "played":
+    for highlight in lyric.get("highlights", []):
+      if highlight["start"] <= index < highlight["end"]:
+        return highlight["color"]
+  return colors[status]
+
+
 class Renderer:
   def __init__(self, config, font_path, base):
     self.config = config
@@ -286,6 +333,12 @@ class Renderer:
         if self.small.getlength(choice["prompt"]) > 135*self.scale or any(
             self.small.getlength(option) > (135//len(choice["options"])-4)*self.scale for option in choice["options"]):
           raise ValueError("选择菜单文字过长，请缩短提示或选项。")
+      for event in scene.get("events", []):
+        if event["kind"] in ("checkpoint", "stage_clear") and self.font.getlength(
+            event.get("text") or ("存档点" if event["kind"] == "checkpoint" else "STAGE CLEAR")) > 120*self.scale:
+          raise ValueError("事件标题过长，请缩短。")
+        if event["kind"] == "pickup" and self.small.getlength(event["item"]) > 70*self.scale:
+          raise ValueError("收集物品名称过长，请缩短。")
       if scene.get("background"):
         with Image.open(base / scene["background"]) as image:
           scene["background_image"] = image.convert("RGBA").resize((256,144), Image.Resampling.NEAREST)
@@ -304,27 +357,44 @@ class Renderer:
     k = self.scale
     state = scene.get("_state", {})
     status_width = 0
-    if state:
-      summary = []
-      if "party" in state:
-        summary.append("队伍 {}".format(len(state["party"])))
-      if "affinity" in state:
-        summary.append("好感 {:g}".format(state["affinity"]))
-      if "distance" in state:
-        summary.append("距离 {:g}{}".format(state["distance"]["value"], state["distance"]["unit"]))
-      if "inventory" in state:
-        summary.append("记忆 {}".format(len(state["inventory"])))
+    summary = []
+    if "party" in state:
+      summary.append("队伍 {}".format(len(state["party"])))
+    if "affinity" in state:
+      summary.append("好感 {:g}".format(state["affinity"]))
+    if "distance" in state:
+      summary.append("距离 {:g}{}".format(state["distance"]["value"], state["distance"]["unit"]))
+    if "inventory" in state:
+      summary.append("物品 {}".format(len(state["inventory"])))
+    gauges = state.get("gauges", {})
+    if summary:
       text = " · ".join(summary)
       if self.small.getlength(text) > 155*k:
         raise ValueError("状态面板过长；请精简状态或缩短数值。")
       width = self.small.getlength(text)+5*k
       status_width = width+4*k
-      draw.rectangle((4*k,3*k,4*k+width,12*k), fill="#112039", outline="#b7c6d3", width=max(1,k//3))
-      self.text(draw,(6*k,4*k),text,self.small,color="#ebedf0")
+      status_y = 14 if gauges or scene["kind"] == "candy_road" else 3
+      if len(gauges) == 2 and status_width > 95*k:
+        raise ValueError("状态面板与第二个进度条重叠，请精简状态。")
+      draw.rectangle((4*k,status_y*k,4*k+width,(status_y+9)*k),
+                     fill="#112039", outline="#b7c6d3", width=max(1,k//3))
+      self.text(draw,(6*k,(status_y+1)*k),text,self.small,color="#ebedf0")
+    for index, (name, value) in enumerate(gauges.items()):
+      if self.small.getlength(name) > 35*k:
+        raise ValueError("进度条名称显示过长，请缩短。")
+      y = (3+index*10)*k
+      draw.rectangle((99*k,y,197*k,y+8*k),fill="#112039",outline="#b7c6d3",width=max(1,k//3))
+      self.text(draw,(101*k,y+k),name,self.small,color="#f3d6e3")
+      draw.rectangle((137*k,y+2*k,173*k,y+6*k),fill="#4b344c")
+      if value > 0:
+        draw.rectangle((137*k,y+2*k,(137+36*value/100)*k,y+6*k),fill="#e984af")
+      self.text(draw,(175*k,y+k),"{}%".format(round(value)),self.small,color="#f7e3ec")
     if scene["kind"] in RAIN_KINDS and scene.get("label"):
       label = scene["label"]
-      if status_width+self.small.getlength(label) > 238*k:
+      if not gauges and status_width+self.small.getlength(label) > 238*k:
         raise ValueError("场景名称与状态面板重叠，请缩短。")
+      if gauges and self.small.getlength(label) > 46*k:
+        raise ValueError("场景名称与进度条重叠，请缩短。")
       self.text(draw,(247*k,4*k),label,self.small,anchor="rt")
     if scene.get("narrative_time") in ("memory", "alternate"):
       label = scene.get("era_label", "回忆" if scene["narrative_time"] == "memory" else "另一种可能")
@@ -357,9 +427,28 @@ class Renderer:
         color = "#ffacc7" if index == choice["selected"] else "#abb6c7"
         self.text(draw,(x*k,38*k),("▶ " if index == choice["selected"] else "")+option,self.small,color=color)
 
+  def event_overlays(self, draw, scene, time):
+    k = self.scale
+    for event in scene.get("events", []):
+      if not event["start"] <= time < event["end"]:
+        continue
+      if event["kind"] in ("checkpoint", "stage_clear"):
+        title = event.get("text") or ("存档点" if event["kind"] == "checkpoint" else "STAGE CLEAR")
+        draw.rectangle((64*k,28*k,192*k,45*k),fill="#f4dfdc",outline="#805269",width=max(1,k//2))
+        draw.text((128*k,31*k),title,font=self.font,fill="#493344",anchor="mt")
+      elif event["kind"] == "pickup":
+        self.text(draw,(128*k,52*k),"+{} {}".format(event.get("coins",1),event["item"]),
+                  self.small,color="#ffe7a7",anchor="mt")
+      elif event["kind"] == "fast_forward":
+        draw.rectangle((201*k,15*k,250*k,25*k),fill="#f1be69",outline="#fcebc5",width=max(1,k//3))
+        self.text(draw,(225*k,16*k),"▶▶ ×{:g}".format(event.get("factor",2)),self.small,
+                  color="#553e59",anchor="mt")
+
   def frame(self, time):
     cfg, k = self.config, self.scale
-    scene = next(scene for scene in cfg["scenes"] if scene["start"] <= time < scene["end"])
+    original = next(scene for scene in cfg["scenes"] if scene["start"] <= time < scene["end"])
+    scene = dict(original)
+    scene["_state"], scene["coins"] = state_at(original, time)
     image = scene_frame(scene, time, cfg.get("bpm",120), cfg.get("beat_offset",0))
     image = image.resize(self.size, Image.Resampling.NEAREST)
     draw = ImageDraw.Draw(image)
@@ -389,10 +478,10 @@ class Renderer:
       if kind == "battle":
         self.text(draw, (81*k,23*k), "烦恼", self.small, color="#f984aa")
     self.overlays(image,draw,scene)
+    self.event_overlays(draw,scene,time)
     lyric = next((row for row in self.lyrics if row["start"] <= time < row["end"]), None)
     if lyric and lyric["_mode"] == "karaoke":
       states = karaoke_states(lyric,time)
-      colors = {"played": "#f3f3f6", "active": "#ff9dc0", "pending": "#7e87a2"}
       widths = [sum(self.font.getlength(char) for _, char in line) for line in lyric["glyphs"]]
       x = (self.size[0]-max(widths,default=0))/2-2*k
       y = (122 if len(widths) == 2 else 130)*k
@@ -401,7 +490,8 @@ class Renderer:
       for line_index, line in enumerate(lyric["glyphs"]):
         pos = (self.size[0]-widths[line_index])/2
         for char_index, char in line:
-          self.text(draw,(pos,y+(2+line_index*8)*k),char,self.font,color=colors[states[char_index]])
+          self.text(draw,(pos,y+(2+line_index*8)*k),char,self.font,
+                    color=lyric_color(lyric,char_index,states[char_index]))
           pos += self.font.getlength(char)
     elif lyric:
       x, y, w, h = 6*k, 120*k, 244*k, 22*k
@@ -411,9 +501,12 @@ class Renderer:
       portrait = sprite().crop((0,0,12,10)).resize((12*k,10*k), Image.Resampling.NEAREST)
       image.alpha_composite(portrait,(x+3*k,y+5*k))
       count = min(len(lyric["text"]), int((time-lyric["start"])/lyric["reveal_seconds"]*len(lyric["text"])))
-      for index, line in enumerate(lyric["lines"]):
-        self.text(draw, (x+21*k,y+(3+index*8)*k), line[:max(0,count)], self.font, color="#e7edf3")
-        count -= len(line)
+      for index, line in enumerate(lyric["glyphs"]):
+        pos = x+21*k
+        for char_index, char in line:
+          if char_index < count:
+            self.text(draw,(pos,y+(3+index*8)*k),char,self.font,color=lyric_color(lyric,char_index,"played"))
+          pos += self.font.getlength(char)
       if int(time*3)%2 == 0:
         draw.polygon([(x+w-7*k,y+h-5*k),(x+w-3*k,y+h-5*k),(x+w-5*k,y+h-3*k)],fill="#ecd668")
     if cfg.get("crt",True):

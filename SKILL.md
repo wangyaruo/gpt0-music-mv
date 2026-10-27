@@ -7,8 +7,8 @@ description: 把歌曲和歌词制作成像素 RPG 叙事音乐视频，用角�
 
 让一首歌看起来像一段有起承转合的游戏流程：歌词里的物件成为装备，动作成为玩法，情绪成为状态，副歌成为可返回但会升级的关卡。
 
-本 skill 来自两支横屏像素游戏风 MV 的拆解。读 [海滩关卡参考](references/reference-analysis.md) 或
-[雨夜回忆参考](references/reference-analysis-rain.md) 获取具体证据；根据歌曲选择视觉世界与叙事结构。
+本 skill 来自三支横屏像素游戏风 MV 的拆解。按需读 [海滩关卡参考](references/reference-analysis.md)、
+[雨夜回忆参考](references/reference-analysis-rain.md) 或 [卷轴收集参考](references/reference-analysis-candy.md)；根据歌曲选择视觉世界与叙事结构。
 
 ## 输入与产物
 
@@ -47,6 +47,8 @@ python3 scripts/analyze_video.py /path/reference.mp4 --out output/analysis
 | 回忆/副歌 | 返回同一地点但改变时段和奖励 | 母题递进 |
 | 关系与选择 | 加入/离开队伍、好感、距离、选项菜单 | 状态变化的原因与结果 |
 | 回忆与假设 | 日期标记、记忆物品、时间回溯选择 | 区分现实、回忆与假设分支 |
+| 主题意象与进度 | 可收集物品、量表、道具特写 | 收集结果与数值跨镜头延续 |
+| 中场过渡 | 存档提示、短暂特写、视觉快进 | 世界位置与播放时间保持连贯 |
 | 结尾 | 宝箱、任务完成、片尾卡 | 关系与任务收束 |
 
 每镜至少写清“歌词含义 → 可见动作 → 变化结果”。不能只写“人物站着，背景变色”。
@@ -55,6 +57,8 @@ python3 scripts/analyze_video.py /path/reference.mp4 --out output/analysis
 将播放时间与故事时间分开：回忆可以打断现实时间线，返回后恢复现实状态；假设分支单独保存状态。
 距离、好感、队伍人数等可以因事件增减；金币减少时写明原因，避免无意跳变。
 空位查询、地图距离、天气通知、队伍更新和选择菜单等界面可直接承担剧情，不必总用战斗或宝箱。
+可让一段歌词落在同一条连续横向卷轴中：远景、中景和近景采用不同滚动速度，短暂插入特写后返回该世界的连续位置。
+收集、进度条、存档和通关提示应有时间与状态后果；通关标志本身不结束 MV。视觉快进与音乐速度分开控制。
 
 ## 建立稳定的像素世界
 
@@ -65,6 +69,7 @@ python3 scripts/analyze_video.py /path/reference.mp4 --out output/analysis
 - 配色变化服务故事：例如明亮开局 → 暖色关系推进 → 暮色高潮 → 夜景收束。
 - 歌词字幕与剧情对白可分层：对白可用带头像的 RPG 对话框；歌词可用底部卡拉 OK 条，已推进白色、当前粉色、未推进灰色。按参考和歌曲选择布局，留出角色脚部空间。
 - 有可信字/词时间戳时按对应时间高亮；只有句级 LRC 时均匀高亮只是近似阅读动画，必须标明未验证，不能声称完成逐字演唱对齐。
+- 可以对主题关键词指定语义颜色；卡拉 OK 模式下当前高亮和待推进状态优先，已推进的关键词再显示语义颜色。
 - 雨夜可分背景、城市窗灯、路灯、雨丝、地面水纹和前景雨；雨伞归属、角色朝向和关系状态随叙事事件明确变化。
 - 中文文字由字体渲染；不要让图像模型把整段歌词画进背景。使用支持目标语言的字体，字体缺失时明确报错。
 - CRT 扫描线、边缘暗角和轻微显示器倾斜只是末端修饰，不能压过文字和精灵可读性。
@@ -73,7 +78,8 @@ python3 scripts/analyze_video.py /path/reference.mp4 --out output/analysis
 
 ## 制作与渲染
 
-本仓库提供程序化原创像素资产：海滩、装备、驾车、战斗、地图、夜景和结尾，以及雨夜城市、公交站、车厢、教室、书店、记忆物品和城市地图。
+本仓库提供程序化原创像素资产：海滩、装备、驾车、战斗、地图、夜景和结尾，雨夜城市、公交站、车厢、教室、书店、记忆物品、城市地图，以及糖果主题横向卷轴道路。
+卷轴场景支持在不同镜头间延续相机位置；可配置拾取、量表、存档提示、通关、视觉快进、眼睛特写和字幕关键词颜色。
 它是可运行的风格原型；酒吧、俯视脚印、篝火等未实现镜头仍需按分镜扩展或提供背景资产。
 
 ```sh
@@ -81,6 +87,8 @@ python3 -m pip install -r requirements.txt
 python3 scripts/render_mv.py examples/demo.json --out output/demo.mp4
 # 雨夜、回忆、独立对话与卡拉 OK 高亮的无声示例：
 python3 scripts/render_mv.py examples/rain-demo.json --out output/rain-demo.mp4
+# 连续卷轴、拾取、进度条与特写的无声示例：
+python3 scripts/render_mv.py examples/candy-demo.json --out output/candy-demo.mp4
 # 将你自己的音频和时间轴配入：
 python3 scripts/render_mv.py my-storyboard.json --audio my-song.wav --lyrics my-song.lrc --out output/mv.mp4
 ```

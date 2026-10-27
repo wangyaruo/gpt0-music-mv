@@ -8,7 +8,7 @@
 不要因为参考片有海滩，就把雪夜或都市歌词强行搬去海边。
 
 短句可以共享一个场景，长句可以拆成状态推进。通常以 2–8 秒的事件单元为起点，按真实歌词时长调整。
-连续性状态建议包含：角色位置/朝向、装备、金币、生命、关系、队伍、距离、记忆物品、关卡和故事时间。
+连续性状态建议包含：角色位置/朝向、装备、金币、生命、关系、队伍、距离、记忆物品、可命名量表、世界位置、关卡和故事时间。
 播放时间始终递增；故事时间可以切到回忆或假设分支。状态变化应由可观察事件解释。
 让叙事重音落在音乐的重拍或分句，而不是机械按固定秒数切换。
 
@@ -31,14 +31,14 @@
 
 每个 scene：
 - `start/end`：起止秒数；end 不包含。
-- `kind`：title / beach / equipment / drive / battle / map / spotlight / night / ending / rain_city / bus_stop / bus_interior / classroom / bookstore / memory_items / city_map。
+- `kind`：title / beach / equipment / drive / battle / map / spotlight / night / ending / rain_city / bus_stop / bus_interior / classroom / bookstore / memory_items / city_map / candy_road。
 - `palette`：day / sunset / night，决定光照世界。
 - `label`：右上关卡名或菜单名。
 - `action`：walk / jump / play / idle。
 - `partner`：是否在画面中出现第二角色。未指定时可根据当前分支的 `state.party` 推断；显式值优先，因此角色离开队伍后仍可作为 NPC 留在画面中。
 - `coins`：当前故事分支的金币数，默认继承前一场景；可以减少，但必须用 `event` 说明原因。
 - `narrative_time`：present（默认）/ memory / alternate；`branch` 是分支名，默认 `main`。每个组合独立保存状态与金币，返回现实后恢复现实分支。
-- `state`：当前分支的增量状态，可含 `party`（hero/partner 列表）、`affinity`（0–100）、`distance`（`{"value": 14, "unit": "km"}`，单位 km/m/cm）和 `inventory`（字符串列表）。已有字段发生变化时填写非空 `event`；未提及的字段沿用本分支上次的值。
+- `state`：当前分支的增量状态，可含 `party`（hero/partner 列表）、`affinity`（0–100）、`distance`（`{"value": 14, "unit": "km"}`，单位 km/m/cm）、`inventory`（字符串列表）和 `gauges`（最多两个名称及 0–100 数值，例如 `{"温暖": 10}`）。已有字段发生变化时填写非空 `event`；未提及的字段沿用本分支上次的值。显式替换 `gauges` 时提供完整量表集合。
 - `event`：对状态变化或金币减少的简短原因说明。状态初次设置不要求 event，但写明会更容易检查剧情。
 - `weather`：clear 或 rain。雨层当前用于 rain_city/bus_stop；其他场景默认清晰天气。
 - `bus`：bus_stop 的 none / approach / leave。
@@ -49,6 +49,22 @@
 - `choice`：`{"prompt":"继续吗？","options":["继续","离开"],"selected":0}`，显示预先编排的选择菜单；它是视频画面，不是交互式游戏。同一场景不能同时设置 dialogue 和 choice。
 - `meaning`：创作时写明对应的歌词意义和状态变化，不参与绘制。
 - `background`：可选 PNG/JPEG，按最近邻缩放到逻辑画布；人物和 UI 仍由渲染器绘制。
+- `camera`：仅 `candy_road` 支持 `{"world":"journey","speed":8}`；speed 为逻辑像素/秒，允许 −40–40。同一故事时间/分支/世界名会继承前一段结束时的相机位置与速度；可通过 `offset` 显式指定新位置。使用外部 `background` 时它是静态图，不参与程序化分层滚动。
+- `events`：场景内有序或无序的事件数组，`start/end` 为视频绝对秒数，必须位于场景范围内。事件与场景级的状态变化原因 `event` 是不同字段。
+
+事件类型：
+
+| kind | 额外字段 | 作用 |
+|---|---|---|
+| pickup | `item`、可选 `coins`（0–999，默认 1） | 结束时加入一项物品并增加金币，结果继承到同分支下一场景 |
+| gauge | `name`、`to`，可选 `from` | 在事件期间线性改变量表并继承最终值；已有量表的 from 必须匹配当前值 |
+| checkpoint | 可选 `text` | 显示存档点提示；只是视频画面，不保存可恢复的游戏进度 |
+| stage_clear | 可选 `text` | 显示通关提示，不结束视频；可用自定义文字表现 LEVEL UP |
+| fast_forward | `factor`（1–16） | 仅 `candy_road`，在事件期间加快视觉滚动，结束后恢复；音频速度不变 |
+| cutin | `style: "eyes"`、`actor: "hero"` 或 `"partner"` | 仅 `candy_road`，暂时显示该角色的眼睛特写，结束后回到连续卷轴 |
+
+不同事件可按需要重叠；同一量表事件、多个快进事件，以及 checkpoint/stage_clear/cutin 之间不能重叠。
+对白/选择和 checkpoint/stage_clear 都占据顶部中心区域时应拆成不同场景。
 
 人物是固定原创 sprite，示例替换人物请编辑 `scripts/pixel_world.py` 的 sprite 图案与色板；
 要接入外部精灵图集时，根据明确的帧宽/帧高/透明通道写加载器，不凭一张不规则 AI 拼图猜切片。
@@ -68,8 +84,12 @@ CLI `--lyrics` 或 JSON `lyrics_file` 会覆盖内嵌的 `lyrics`；外部音频
 没有 tokens 时，在句内按字符均匀推进并标记近似。普通 LRC 只有句级时间；均匀高亮不等于逐字演唱对齐。
 有 token 时间戳也应听音核对。当前脚本不包含自动语音识别或强制对齐。
 
+可选 `highlights` 使用 Python 字符索引区间 `[start,end)` 和 `#RRGGBB` 颜色，例如 `{"start":5,"end":7,"color":"#ffc75a"}`；同一句的区间按顺序排列且不能重叠。
+对白模式在文字出现后显示关键词颜色；卡拉 OK 模式先保留当前粉色/未推进灰色，已推进的关键词再使用语义颜色。
+
 可运行示例见 `examples/rain-demo.json`：现实中的队伍状态、独立校园回忆、距离减少、假设选择和雨伞共用，以及一行带手工演示 token 的高亮。
 示例歌词和时间戳均为演示数据，并非参考视频的歌词或音频转写。
+连续卷轴、收集、量表、存档提示、快进和特写见 `examples/candy-demo.json`；其示例文案同样是原创演示，不含参考歌曲。
 
 ## 资产提示词骨架（仅需要生成新资产时使用）
 

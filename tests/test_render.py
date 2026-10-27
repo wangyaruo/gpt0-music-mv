@@ -69,6 +69,24 @@ class RenderIntegrationTests(unittest.TestCase):
     self.assertEqual(result["type"], "still")
     self.assertTrue(output.is_file())
 
+  def test_scrolling_and_timed_events_render_with_audio(self):
+    config = json.loads((ROOT/"examples/candy-demo.json").read_text(encoding="utf-8"))
+    config["duration"] = 4
+    config["scenes"] = config["scenes"][:1]
+    config["scenes"][0]["end"] = 4
+    config["scenes"][0]["events"] = config["scenes"][0]["events"][:2]
+    config["lyrics"] = config["lyrics"][:1]
+    config["lyrics"][0]["end"] = 4
+    config["scale"] = 2
+    config["fps"] = 12
+    path = self.root/"candy.json"
+    path.write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
+    output = self.root/"candy.mp4"
+    result = render(path, output, audio=self.tone(4), font=self.font, ffmpeg=self.ffmpeg)
+    self.assertTrue(result["has_audio"])
+    self.assertAlmostEqual(result["duration"], 4, places=1)
+    self.assertEqual((result["width"], result["height"], result["fps"]), (512, 288, 12))
+
 
 if __name__ == "__main__":
   unittest.main()
