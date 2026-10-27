@@ -2,7 +2,7 @@
 import math
 import random
 from functools import lru_cache
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageOps
 
 SIZE = (256, 144)
 PALETTES = {
@@ -25,17 +25,27 @@ PARTNER = (
 )
 COLORS = {"K": "#242a3d", "H": "#754650", "S": "#fbd1aa", "W": "#28334a", "M": "#dc7c78",
           "B": "#44b4bf", "D": "#294b70", "O": "#ee9471"}
-KIND_NAMES = {"title", "beach", "equipment", "drive", "battle", "map", "spotlight", "night", "ending"}
+RAIN_KINDS = {"rain_city", "bus_stop", "bus_interior", "classroom", "bookstore", "memory_items", "city_map"}
+KIND_NAMES = {"title", "beach", "equipment", "drive", "battle", "map", "spotlight", "night", "ending"} | RAIN_KINDS
 
 
 @lru_cache(maxsize=64)
-def sprite(partner=False, step=0, silhouette=False):
+def sprite(partner=False, step=0, silhouette=False, view="front"):
   image = Image.new("RGBA", (12, 19))
   draw = ImageDraw.Draw(image)
   for y, row in enumerate(PARTNER if partner else HERO):
     for x, key in enumerate(row):
       if key != ".":
         draw.point((x, y), fill="#181d32" if silhouette else COLORS[key])
+  if view == "back":
+    hair = "#181d32" if silhouette else COLORS["H" if partner else "K"]
+    draw.rectangle((2, 3, 9, 8), fill=hair)
+    if partner:
+      draw.rectangle((1, 7, 10, 10), fill=hair)
+  elif view in ("left", "right"):
+    skin = "#181d32" if silhouette else COLORS["S"]
+    draw.rectangle((3, 4, 8, 8), fill=skin)
+    draw.point((4 if view == "left" else 7, 5), fill="#28334a")
   color = "#181d32" if silhouette else "#fbd1aa" if partner else "#294b70"
   shift = 1 if step % 2 else 0
   draw.rectangle((3 - shift, 15, 4, 17), fill=color)
@@ -45,9 +55,9 @@ def sprite(partner=False, step=0, silhouette=False):
   return image
 
 
-def person(image, x, ground, time, partner=False, action="idle", zoom=1, silhouette=False):
-  tick = int(time * 8)
-  frame = sprite(partner, tick % 2 if action == "walk" else 0, silhouette)
+def person(image, x, ground, time, partner=False, action="idle", zoom=1, silhouette=False, view="front", animation_fps=8):
+  tick = int(time * animation_fps)
+  frame = sprite(partner, tick % 2 if action == "walk" else 0, silhouette, view)
   if zoom != 1:
     frame = frame.resize((12 * zoom, 19 * zoom), Image.Resampling.NEAREST)
   hop = 0
@@ -154,6 +164,9 @@ def scene_frame(scene, time, bpm, beat_offset=0):
   local = time - scene["start"]
   progress = min(1, max(0, local / (scene["end"] - scene["start"])))
   kind = scene["kind"]
+  if kind in RAIN_KINDS:
+    from rain_scenes import render_rain_scene
+    return render_rain_scene(scene, time)
   palette_name = scene.get("palette", "night" if kind in ("night", "ending") else "day")
   image = background(time, palette_name)
   if scene.get("background_image") is not None:
@@ -175,7 +188,8 @@ def scene_frame(scene, time, bpm, beat_offset=0):
       amount = index / 19
       x, y = 42 + amount*90, 92 - amount*50
       draw.rectangle((int(x),int(y),int(x)+1,int(y)+1), fill="#ffe4a0")
-    person(image, 42 + progress*90, 86-progress*50, time, action="walk")
+    person(image, 42 + progress*90, 86-progress*50, time, action="walk",
+           view=scene.get("hero_view", "front"), animation_fps=scene.get("_animation_fps", 8))
   elif kind == "equipment":
     draw.rectangle((0, 0, 255, 143), fill="#10223b")
     for x in range(-144, 256, 8):
@@ -183,7 +197,8 @@ def scene_frame(scene, time, bpm, beat_offset=0):
     draw.rectangle((8, 18, 113, 114), fill="#102b49", outline="#9caec1")
     draw.rectangle((121, 18, 247, 114), fill="#102139", outline="#9caec1")
     draw.ellipse((23, 91, 101, 105), fill="#23516a")
-    person(image, 63, 101, time, action="idle", zoom=3)
+    person(image, 63, 101, time, action="idle", zoom=3,
+           view=scene.get("hero_view", "front"), animation_fps=scene.get("_animation_fps", 8))
     row = int(local / 1.0) % 3
     draw.rectangle((125, 42+row*19, 243, 59+row*19), fill="#206b9c")
   elif kind == "drive":
@@ -192,9 +207,11 @@ def scene_frame(scene, time, bpm, beat_offset=0):
       xx = int(x - time*38 % 35)
       draw.rectangle((xx, 114, xx+17, 115), fill="#f9eed3")
     x = 106 + int(math.sin(time*.7)*13)
-    person(image, x+12, 103, time)
+    person(image, x+12, 103, time, view=scene.get("hero_view", "front"),
+           animation_fps=scene.get("_animation_fps", 8))
     if scene.get("partner"):
-      person(image, x-5, 103, time, partner=True)
+      person(image, x-5, 103, time, partner=True, view=scene.get("partner_view", "front"),
+             animation_fps=scene.get("_animation_fps", 8))
     draw.rectangle((x-28, 102, x+30, 111), fill="#ea787c", outline="#3c3549")
     draw.rectangle((x-16, 97, x+20, 102), fill="#d55b7a")
     draw.ellipse((x-18, 107, x-10, 115), fill="#28324b")
@@ -202,9 +219,11 @@ def scene_frame(scene, time, bpm, beat_offset=0):
     draw.rectangle((x-15, 110, x-13, 112), fill="#d4e3df")
     draw.rectangle((x+20, 110, x+22, 112), fill="#d4e3df")
   elif kind == "battle":
-    person(image, 75, 112, time, action="play")
+    person(image, 75, 112, time, action="play", view=scene.get("hero_view", "front"),
+           animation_fps=scene.get("_animation_fps", 8))
     if scene.get("partner"):
-      person(image, 185, 112, time, partner=True)
+      person(image, 185, 112, time, partner=True, view=scene.get("partner_view", "front"),
+             animation_fps=scene.get("_animation_fps", 8))
     draw.rectangle((78, 18, 231, 38), fill="#1b213b", outline="#aeb7c4")
     draw.rectangle((111, 27, 222, 30), fill="#4b2c4e")
     draw.rectangle((111, 27, 111+int(111*(1-progress)), 30), fill="#f16390")
@@ -219,14 +238,17 @@ def scene_frame(scene, time, bpm, beat_offset=0):
       b = a + math.pi/20
       draw.polygon([(128, 70), (128+int(math.cos(a)*300),70+int(math.sin(a)*300)),
                     (128+int(math.cos(b)*300),70+int(math.sin(b)*300))], fill="#ffe778")
-    person(image, 128, 112, time, action="play", zoom=3)
+    person(image, 128, 112, time, action="play", zoom=3, view=scene.get("hero_view", "front"),
+           animation_fps=scene.get("_animation_fps", 8))
     sparkles(draw, time, center=(128,70), count=26)
   else:
     hero_x = 82 + int(progress*45) if kind == "beach" else 116
     action = scene.get("action", "walk" if kind == "beach" else "idle")
-    person(image, hero_x, 112, time, action=action)
+    person(image, hero_x, 112, time, action=action, view=scene.get("hero_view", "front"),
+           animation_fps=scene.get("_animation_fps", 8))
     if scene.get("partner"):
-      person(image, hero_x+28, 112, time+.2, partner=True, action="walk" if action == "walk" else "idle")
+      person(image, hero_x+28, 112, time+.2, partner=True, action="walk" if action == "walk" else "idle",
+             view=scene.get("partner_view", "front"), animation_fps=scene.get("_animation_fps", 8))
     if kind == "beach":
       for index in range(8):
         x = 92 + index*12
@@ -245,4 +267,6 @@ def scene_frame(scene, time, bpm, beat_offset=0):
     for index in range(3):
       heart(draw, 8+index*9, 7)
     draw.rectangle((40,7,44,12), fill="#ffdf63", outline="#8a6a46")
+  if scene.get("narrative_time") == "memory" and scene.get("memory_filter", True):
+    image = ImageOps.colorize(image.convert("RGB").convert("L"), "#5f4a3d", "#f3e2bf").convert("RGBA")
   return image
