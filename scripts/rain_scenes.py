@@ -5,7 +5,7 @@ from PIL import Image, ImageDraw, ImageOps
 from pixel_world import SIZE, heart, person
 
 
-def city(time):
+def city(time, wet=False):
   image = Image.new("RGBA", SIZE, "#101a37")
   draw = ImageDraw.Draw(image)
   for band in range(4):
@@ -28,11 +28,12 @@ def city(time):
     draw.rectangle((x-3, 39, x+3, 42), fill="#f8e8ba")
     draw.polygon([(x, 43), (x-10, 91), (x+10, 91)], fill="#667087")
     draw.line((x-9, 92, x+9, 92), fill="#a3b3c0")
-  for index in range(24):
-    x = (index*37+11)%256
-    y = 102+(index*19)%38
-    if int(time*4+index)%4 != 0:
-      draw.line((x, y, x+3, y), fill="#8596b4")
+  if wet:
+    for index in range(24):
+      x = (index*37+11)%256
+      y = 102+(index*19)%38
+      if int(time*4+index)%4 != 0:
+        draw.line((x, y, x+3, y), fill="#8596b4")
   return image
 
 
@@ -97,11 +98,11 @@ def render_rain_scene(scene, time):
   kind = scene["kind"]
   local = time-scene["start"]
   progress = min(1, max(0, local/(scene["end"]-scene["start"])))
-  weather = scene.get("weather", "rain" if kind in ("rain_city", "bus_stop") else "clear")
+  weather = scene.get("weather", "rain" if kind == "rain_city" else "clear")
   if kind in ("classroom", "bookstore"):
     image = interior(kind)
   else:
-    image = city(time)
+    image = city(time, wet=weather == "rain")
   if scene.get("background_image") is not None:
     image = scene["background_image"].copy()
   draw = ImageDraw.Draw(image)

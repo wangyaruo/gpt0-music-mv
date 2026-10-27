@@ -14,7 +14,7 @@
 
 ## JSON 结构
 
-直接复制 `examples/demo.json` 后改写。所有数值时间以秒计。
+先完成 [歌曲定位与选景](song-direction.md)，再选择接近的结构示例或从空白分镜开始。删除不适用的示例天气、人物和剧情。所有数值时间以秒计。
 
 顶层字段：
 - `title`、`credit`：片名和用户指定署名；不要继承参考视频的艺人名。
@@ -40,7 +40,7 @@
 - `narrative_time`：present（默认）/ memory / alternate；`branch` 是分支名，默认 `main`。每个组合独立保存状态与金币，返回现实后恢复现实分支。
 - `state`：当前分支的增量状态，可含 `party`（hero/partner 列表）、`affinity`（0–100）、`distance`（`{"value": 14, "unit": "km"}`，单位 km/m/cm）、`inventory`（字符串列表）和 `gauges`（最多两个名称及 0–100 数值，例如 `{"温暖": 10}`）。已有字段发生变化时填写非空 `event`；未提及的字段沿用本分支上次的值。显式替换 `gauges` 时提供完整量表集合。
 - `event`：对状态变化或金币减少的简短原因说明。状态初次设置不要求 event，但写明会更容易检查剧情。
-- `weather`：clear 或 rain。雨层当前用于 rain_city/bus_stop；其他场景默认清晰天气。
+- `weather`：clear 或 rain。`rain_city` 默认 rain，`bus_stop` 默认 clear；要为站台添加雨须明确写 `"weather":"rain"`。两者的内置城市底图是夜景，clear 仅表示无雨，并不自动变成白天。雨层仅支持这两种场景。
 - `bus`：bus_stop 的 none / approach / leave。
 - `umbrella`：`{"owner":"hero|partner|shared","color":"blue|pink"}`；适用于 rain_city、bus_stop、classroom、bookstore，partner/shared 要求同伴在场。雨伞由场景显式设置，不会自动跨场景继承。
 - `hero_view`、`partner_view`：front / back / left / right，默认 front；示例精灵提供简化视角，不是完整的逐方向角色图集。
@@ -49,7 +49,7 @@
 - `choice`：`{"prompt":"继续吗？","options":["继续","离开"],"selected":0}`，显示预先编排的选择菜单；它是视频画面，不是交互式游戏。同一场景不能同时设置 dialogue 和 choice。
 - `meaning`：创作时写明对应的歌词意义和状态变化，不参与绘制。
 - `background`：可选 PNG/JPEG，按最近邻缩放到逻辑画布；人物和 UI 仍由渲染器绘制。
-- `camera`：仅 `candy_road` 支持 `{"world":"journey","speed":8}`；speed 为逻辑像素/秒，允许 −40–40。同一故事时间/分支/世界名会继承前一段结束时的相机位置与速度；可通过 `offset` 显式指定新位置。使用外部 `background` 时它是静态图，不参与程序化分层滚动。
+- `camera`：`candy_road` 和 `composite` 支持 `{"world":"journey","speed":8}`；speed 为逻辑像素/秒，允许 −40–40。同一故事时间/分支/世界名会继承前一段结束时的相机位置与速度；可通过 `offset` 显式指定新位置。使用外部 `background` 时它是静态图，不参与程序化分层滚动。
 - `events`：场景内有序或无序的事件数组，`start/end` 为视频绝对秒数，必须位于场景范围内。事件与场景级的状态变化原因 `event` 是不同字段。
 
 事件类型：
@@ -66,8 +66,7 @@
 不同事件可按需要重叠；同一量表事件、多个快进事件，以及 checkpoint/stage_clear/cutin 之间不能重叠。
 对白/选择和 checkpoint/stage_clear 都占据顶部中心区域时应拆成不同场景。
 
-人物是固定原创 sprite，示例替换人物请编辑 `scripts/pixel_world.py` 的 sprite 图案与色板；
-要接入外部精灵图集时，根据明确的帧宽/帧高/透明通道写加载器，不凭一张不规则 AI 拼图猜切片。
+人物可使用内置原创 sprite 或按 [素材流程](asset-pipeline.md) 配置外部规则精灵图集；不凭不规则 AI 拼图猜切片。
 现有 renderer 不宣称支持未实现的剧情镜头；为新 kind 增加对应绘制函数和验证，再写入配置。
 
 ## 字幕
@@ -82,7 +81,7 @@ CLI `--lyrics` 或 JSON `lyrics_file` 会覆盖内嵌的 `lyrics`；外部音频
 每句可提供 `tokens`：例如 `{"text":"雨点","start":0,"end":0.8}`；所有 token 按时间排序、不重叠、位于该句内，拼接文本必须与完整句子一致。时间为视频绝对秒数。
 `timing_source` 可标为 `manual`、`aligned` 或 `estimated`，默认 estimated；渲染元数据会统计这些来源，但不会核验用户声明。
 没有 tokens 时，在句内按字符均匀推进并标记近似。普通 LRC 只有句级时间；均匀高亮不等于逐字演唱对齐。
-有 token 时间戳也应听音核对。当前脚本不包含自动语音识别或强制对齐。
+有 token 时间戳也应听音核对。可选 WhisperX 对齐流程需另行安装，详见 [素材流程](asset-pipeline.md)。
 
 可选 `highlights` 使用 Python 字符索引区间 `[start,end)` 和 `#RRGGBB` 颜色，例如 `{"start":5,"end":7,"color":"#ffc75a"}`；同一句的区间按顺序排列且不能重叠。
 对白模式在文字出现后显示关键词颜色；卡拉 OK 模式先保留当前粉色/未推进灰色，已推进的关键词再使用语义颜色。

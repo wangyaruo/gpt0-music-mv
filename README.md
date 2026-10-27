@@ -33,7 +33,7 @@ git clone https://github.com/wangyaruo/gpt0-music-mv.git ~/.codex/skills/gpt0-mu
 
 > 使用 $gpt0-music-mv，把我提供的歌曲和 LRC 歌词做成像素 RPG 音乐视频。先把歌词转为游戏事件，再制作固定角色和连贯的关卡叙事。
 
-入口是 [SKILL.md](SKILL.md)，详细分镜字段和资产提示词见 [分镜契约](references/storyboard.md)，歌词对齐、精灵图和分层合成见 [素材与歌词流程](references/asset-pipeline.md)。
+入口是 [SKILL.md](SKILL.md)，歌曲理解与视觉选择见 [歌曲定位与选景](references/song-direction.md)，详细分镜字段和资产提示词见 [分镜契约](references/storyboard.md)，歌词对齐、精灵图和分层合成见 [素材与歌词流程](references/asset-pipeline.md)。
 它不绑定某个付费图像/视频服务，也不宣称能凭成片判断原作者使用的模型。
 
 ## 直接运行
@@ -68,10 +68,11 @@ FFmpeg 不在 PATH 时，加 `--ffmpeg /path/to/ffmpeg`，也可设置 `FFMPEG_B
 
 ## 用你自己的歌曲
 
-1. 复制 `examples/demo.json` 为自己的分镜。
-2. 把 `duration` 和 `scenes` 改为真实歌曲时间线，镜头连续覆盖整首歌。
-3. 为每句歌词设计一个有动作和结果的游戏事件，按需要替换角色或扩展场景。
-4. 传入音频和句级歌词；人工核对同步后交付。
+1. 结合用户要求、歌词和实际听感确定主题、情绪、地点、天气与色调，并写明依据；参考片中的雨天不作为默认。
+2. 可选运行 `python3 scripts/analyze_song.py my-song.wav --out output/song-analysis.json`，测量时长、分段音量及可选 BPM 候选；这些信号不能自动判断歌曲情绪。
+3. 从合适的示例或空白分镜开始，把 `duration` 和 `scenes` 改为真实歌曲时间线，删除不适用的示例设定。
+4. 为歌词设计有动作和结果的游戏事件；现有素材不合适时使用自定义角色和图层。
+5. 传入音频和歌词时间轴，人工核对同步后交付。
 
 ```sh
 python3 scripts/render_mv.py my-storyboard.json \
@@ -95,7 +96,7 @@ JSON 内的 `audio`、`lyrics_file`、`font`、场景 `background` 路径相对�
 | 视频 | 最近邻整数放大、轻 CRT、H.264、可选 AAC 音频、成片元数据检查 |
 | 参考分析 | 定时抽帧、联系表、转场候选；安装可选 NumPy 后提供 BPM 候选 |
 
-原片中的酒吧、俯视脚印、篝火、背包网格、摩天轮和更复杂的镜头运动仍需扩展场景或提供资产。
+公交站默认无雨，雨夜城市默认有雨；两种内置城市底图均为夜景，`weather: clear` 不会将其变成白天。原片中的酒吧、俯视脚印、篝火、背包网格、摩天轮和更复杂的镜头运动仍需扩展场景或提供资产。
 存档点只是一段画面，不会保存游戏进度；视觉快进不改变音频速度。
 程序化像素资产在 `scripts/pixel_world.py` 中，可替换配色、人物图案和场景。
 基础安装不包含语音识别或自动音乐生成。可选 WhisperX 必须另行安装并准备模型；自动匹配结果需要听音校对，无法匹配的行需要人工补全。只有句级 LRC 时的逐字高亮是近似阅读动画。
@@ -111,6 +112,8 @@ references/reference-analysis-rain.md 第二支参考片及增补方法
 references/reference-analysis-candy.md 第三支参考片及卷轴方法
 references/storyboard.md      歌词映射、分镜契约、资产提示词
 scripts/analyze_video.py      参考视频分析
+scripts/analyze_song.py       歌曲时长、分段 RMS 和可选 BPM 候选
+references/song-direction.md  歌曲定位与场景选择
 scripts/render_mv.py          时间轴、对白与视频合成
 scripts/pixel_world.py        原创像素角色和场景
 scripts/rain_scenes.py        雨夜城市、公交、回忆与地图
