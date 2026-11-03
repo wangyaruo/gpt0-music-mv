@@ -60,6 +60,8 @@ start 上并静默丢失。切完必须复查：每个事件的 `start/end` 都�
 - `hero_view`、`partner_view`：front / back / left / right，默认 front；示例精灵提供简化视角，不是完整的逐方向角色图集。
 - `era_label`：回忆/假设分支的画面标记；回忆默认使用暖褐色，可用 `memory_filter: false` 关闭。
 - `dialogue`：`{"speaker":"hero|partner","name":"同伴","text":"台词"}`，显示顶部头像对白。
+  台词写「过程」不写结论（「伞歪了 / 没歪 / 你肩膀全湿了」而不是「他的肩膀湿了」），
+  写法见 [长片实战要点](production-notes.md) 第十节。
 - `choice`：`{"prompt":"继续吗？","options":["继续","离开"],"selected":0}`，显示预先编排的选择菜单；它是视频画面，不是交互式游戏。同一场景不能同时设置 dialogue 和 choice。
 - `meaning`：创作时写明对应的歌词意义和状态变化，不参与绘制。
 - `background`：可选 PNG/JPEG，按最近邻缩放到逻辑画布；人物和 UI 仍由渲染器绘制。

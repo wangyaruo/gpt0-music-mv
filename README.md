@@ -34,7 +34,7 @@ git clone https://github.com/wangyaruo/gpt0-music-mv.git ~/.codex/skills/gpt0-mu
 > 使用 $gpt0-music-mv，把我提供的歌曲和 LRC 歌词做成像素 RPG 音乐视频。先把歌词转为游戏事件，再制作固定角色和连贯的关卡叙事。
 
 入口是 [SKILL.md](SKILL.md)，歌曲理解与视觉选择见 [歌曲定位与选景](references/song-direction.md)，详细分镜字段和资产提示词见 [分镜契约](references/storyboard.md)，歌词对齐、精灵图和分层合成见 [素材与歌词流程](references/asset-pipeline.md)。
-做到 30 镜以上、或收到「画面太少 / 画面重复」的反馈时读 [长片实战要点](references/production-notes.md)：重复诊断、切长镜的两张表、文字安全区、自定义场景的三个自问、Pillow 工程坑、音效铺轨与封面出图。
+做到 30 镜以上、或收到「画面太少 / 画面重复 / 对话太少」的反馈时读 [长片实战要点](references/production-notes.md)：重复诊断、切长镜的两张表、文字安全区、自定义场景的三个自问、Pillow 工程坑、音效铺轨、封面出图与平台裁切、抽帧验收、对话改写。
 它不绑定某个付费图像/视频服务，也不宣称能凭成片判断原作者使用的模型。
 
 ## 直接运行
@@ -118,7 +118,7 @@ references/storyboard.md      歌词映射、分镜契约、资产提示词
 scripts/analyze_video.py      参考视频分析
 scripts/analyze_song.py       歌曲时长、分段 RMS 和可选 BPM 候选
 references/song-direction.md  歌曲定位与场景选择
-references/production-notes.md 长片实战：重复诊断、安全区、场景自问、音效、封面、验收
+references/production-notes.md 长片实战：重复诊断、安全区、场景自问、音效、封面与平台裁切、验收、对话改写
 scripts/render_mv.py          时间轴、对白与视频合成
 scripts/pixel_world.py        原创像素角色和场景
 scripts/rain_scenes.py        雨夜城市、公交、过街、天台、回忆与地图
